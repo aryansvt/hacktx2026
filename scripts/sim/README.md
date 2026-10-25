@@ -34,6 +34,26 @@ python scripts/sim/sim_bot.py --run            # also runs the drop, threat goes
 
 With `--family NAME`, the dropped file is called `NAME`. Brain looks the name up on the web, finds the public write-ups, and marks the session `malicious` with that family, so it shows as a stone golem. The name has to be 4 to 32 letters, digits, `-` or `_`, since brain doesn't search shorter names. Lookups are cached for 7 days, so repeat runs don't spend searches.
 
+## demo_show.py
+
+The whole cast, one act after another, with a 20 second pause between acts. It prints the lineup first, then announces each act before it starts. If one act fails (say, no `ANTHROPIC_API_KEY` for the agents), the show moves on.
+
+```
+python scripts/sim/demo_show.py
+python scripts/sim/demo_show.py --gap 30 --family mirai
+```
+
+| act | creature |
+| --- | --- |
+| `sim_bot` | clay golem |
+| `sim_bot --family NAME` | stone golem |
+| `sim_human` | dark mage |
+| `demo_agent` | fae |
+| `demo_agent --polite` | purple slime |
+| `demo_escalation` | dragon |
+
+`--family` defaults to `mirai`. Expect roughly 6 to 8 minutes, mostly the two agent runs.
+
 ## Tests
 
 ```

@@ -1,0 +1,203 @@
+[
+  {
+    "event_id": "7f5e003a-c889-5f06-94ef-bbb389098646",
+    "session_id": "ssh-hum00001",
+    "type": "session_start",
+    "timestamp": "2026-10-24T18:00:00.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "client": "SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13"
+    }
+  },
+  {
+    "event_id": "e298e1a7-f8a2-55fd-b6e7-392216e2ed8d",
+    "session_id": "ssh-hum00001",
+    "type": "login_fail",
+    "timestamp": "2026-10-24T18:00:04.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "username": "root",
+      "success": false
+    }
+  },
+  {
+    "event_id": "e78769a6-fda2-52d1-b697-c618a4a924c9",
+    "session_id": "ssh-hum00001",
+    "type": "login_success",
+    "timestamp": "2026-10-24T18:00:11.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "username": "root",
+      "success": true
+    }
+  },
+  {
+    "event_id": "2956638c-169d-5034-93d8-6bab5807a8be",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:20.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "ls",
+      "output": "backup  notes",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "fd61bc01-fb5d-5f7c-8f43-f1d47af099e1",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:24.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "whoamii",
+      "output": "bash: whoamii: command not found",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "885c678c-bdff-559f-aebd-86639cfa2195",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:27.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "whoami",
+      "output": "root",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "f765cc6e-f498-5f64-bd66-d7cf2c7aaf3d",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:45.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "cd /var/www",
+      "output": "",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "1c9302b2-f464-5488-86a8-f37d3358c663",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:48.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "ls",
+      "output": "html  config.php",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "e54bff5d-4467-53e6-9d32-b4d64f609970",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:01:30.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "cat config.php",
+      "output": "<?php $db_host = 'localhost'; ?>",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "dad888db-96ef-5155-994a-c9f405323aa3",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:01:36.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "cd ..",
+      "output": "",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "9a1256e7-2e06-5a89-9556-a0be4e11036a",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:01:39.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "ls -al",
+      "output": "drwxr-xr-x 4 root root 4096 www",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "9f29b191-fc45-5049-9671-756525977c8f",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:02:10.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "clear",
+      "output": "",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "6a291f45-88e4-5e70-94ba-7cf2a3d24857",
+    "session_id": "ssh-hum00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:02:14.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "input": "uname -a",
+      "output": "Linux web01 5.15.0-91-generic x86_64 GNU/Linux",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "76c098fa-39ae-547e-87ab-3c31ed9972f5",
+    "session_id": "ssh-hum00001",
+    "type": "session_end",
+    "timestamp": "2026-10-24T18:02:30.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "198.51.100.20",
+    "detail": {
+      "duration_s": 150,
+      "command_count": 10
+    }
+  }
+]

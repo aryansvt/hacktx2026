@@ -1,0 +1,181 @@
+"""pure helpers for reading attacker command lines. nothing here runs or fetches anything."""
+
+from __future__ import annotations
+
+import posixpath
+import re
+from urllib.parse import urlsplit
+
+_SPLIT = re.compile(r"\s*(?:&&|\|\||;|\||\n)\s*")
+URL_RE = re.compile(r"\b(?:https?|ftp|tftp)://[^\s\"'<>|;`)]+", re.I)
+_BARE_HOST = re.compile(r"^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:/\S*)?$", re.I)
+_IPV4_HOST = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:/\S*)?$")
+_SHELL_PIPE = re.compile(r"\|\s*(?:sudo\s+)?(?:/bin/|/usr/bin/)?(?:ba|da|z)?sh\b")
+
+# file extensions that make a token a file name, not a host
+_FILE_EXT = (".sh", ".txt", ".py", ".pl", ".conf", ".cfg", ".log", ".json", ".md",
+             ".env", ".tar", ".gz", ".tgz", ".zip", ".bin", ".so", ".yml", ".yaml",
+             ".ini", ".php", ".js", ".html", ".key", ".pem", ".db", ".sql", ".bak")
+
+DOWNLOADERS = {"wget", "curl", "tftp", "ftpget", "scp", "lwp-download", "fetch", "aria2c"}
+SHELLS = {"sh", "bash", "dash", "zsh", "ash", "ksh"}
+
+# binaries any linux box has. anything else counts as an unusual tool name
+COMMON = {
+    "ls", "cd", "pwd", "cat", "echo", "printf", "uname", "whoami", "id", "w", "who",
+    "last", "lastlog", "hostname", "uptime", "ps", "top", "htop", "free", "df", "du",
+    "mount", "lscpu", "nproc", "lsblk", "lspci", "lsusb", "dmesg", "ifconfig", "ip",
+    "route", "netstat", "ss", "arp", "ping", "traceroute", "dig", "nslookup", "host",
+    "wget", "curl", "tftp", "ftpget", "scp", "ssh", "sftp", "rsync", "nc", "ncat",
+    "telnet", "chmod", "chown", "chattr", "lsattr", "rm", "mv", "cp", "mkdir", "rmdir",
+    "touch", "ln", "find", "locate", "which", "whereis", "type", "file", "stat", "head",
+    "tail", "less", "more", "grep", "egrep", "fgrep", "awk", "sed", "cut", "sort",
+    "uniq", "wc", "tr", "xargs", "tee", "tar", "gzip", "gunzip", "zip", "unzip",
+    "base64", "md5sum", "sha256sum", "xxd", "od", "strings", "env", "export", "set",
+    "unset", "history", "alias", "clear", "exit", "logout", "sudo", "su", "passwd",
+    "chpasswd", "useradd", "adduser", "userdel", "usermod", "groups", "crontab",
+    "systemctl", "service", "journalctl", "kill", "pkill", "killall", "nohup",
+    "sleep", "date", "cal", "man", "info", "help", "vi", "vim", "nano", "emacs",
+    "python", "python3", "perl", "ruby", "php", "node", "java", "gcc", "make", "git",
+    "apt", "apt-get", "yum", "dnf", "apk", "pip", "pip3", "npm", "docker", "kubectl",
+    "iptables", "ufw", "shred", "truncate", "dd", "sync", "reboot", "shutdown",
+    "halt", "busybox", "enable", "system", "shell", "sh", "bash", "dash", "zsh",
+    "ash", "true", "false", "test", "lsof", "getconf", "locale", "tty", "stty",
+    "mesg", "finger", "pgrep", "nice", "renice", "watch", "time", "bc", "expr",
+    "seq", "yes", "basename", "dirname", "readlink", "realpath", "mktemp", "diff",
+    "cmp", "patch", "openssl", "ssh-keygen", "lsmod", "modprobe", "sysctl", "ulimit",
+    "source", ".", "exec", "eval", "read", "wait", "jobs", "fg", "bg", "disown",
+    "cls", "dir", "ver", "tasklist", "ftp", "sshd", "init", "mail", "chsh", "visudo",
+}
+
+
+def segments(line: str) -> list[str]:
+    """split a line on ; && || | and newlines."""
+    return [s for s in _SPLIT.split(line or "") if s.strip()]
+
+
+def words(segment: str) -> list[str]:
+    return segment.strip().split()
+
+
+def command_name(segment: str) -> str:
+    """first real command in a segment, skipping sudo, env vars, busybox and paths."""
+    toks = words(segment)
+    while toks and (posixpath.basename(toks[0]) in ("sudo", "nohup", "exec", "busybox", "time", "env")
+                    or re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", toks[0])):
+        toks = toks[1:]
+    if not toks:
+        return ""
+    t = toks[0]
+    if t.startswith("./"):
+        return t
+    return posixpath.basename(t) if "/" in t else t
+
+
+def urls(line: str) -> list[str]:
+    return URL_RE.findall(line or "")
+
+
+def _bare_hosts(line: str) -> list[str]:
+    """host-looking args given to downloaders without a scheme, e.g. wget evil.com/x.sh"""
+    out = []
+    for seg in segments(line):
+        if command_name(seg) not in DOWNLOADERS:
+            continue
+        for tok in words(seg)[1:]:
+            if tok.startswith("-") or "://" in tok:
+                continue
+            if _IPV4_HOST.match(tok) or (_BARE_HOST.match(tok) and not tok.lower().endswith(_FILE_EXT)):
+                out.append(tok)
+    return out
+
+
+def domains(line: str) -> list[str]:
+    """hosts named in a line. strings only, never resolved."""
+    hosts: list[str] = []
+    for u in urls(line):
+        h = urlsplit(u).hostname
+        if h:
+            hosts.append(h.lower())
+    for tok in _bare_hosts(line):
+        hosts.append(tok.split("/")[0].split(":")[0].lower())
+    return list(dict.fromkeys(hosts))
+
+
+def is_download(line: str) -> bool:
+    for seg in segments(line):
+        name = command_name(seg)
+        if name not in DOWNLOADERS:
+            continue
+        rest = " ".join(words(seg)[1:])
+        if name == "scp" and re.search(r"\S+@?\S+:\S*", rest):
+            return True
+        if name == "tftp" and re.search(r"\s-r\s|\s-g\b|-gr\b", " " + rest):
+            return True
+        if URL_RE.search(seg) or _bare_hosts(seg):
+            return True
+    return False
+
+
+def downloaded_files(line: str) -> list[str]:
+    """file names a download in this line would create."""
+    if not is_download(line):
+        return []
+    names = []
+    for seg in segments(line):
+        if command_name(seg) not in DOWNLOADERS:
+            continue
+        toks = words(seg)
+        for i, t in enumerate(toks):
+            if t in ("-O", "-o", "-r", "--output") and i + 1 < len(toks) and toks[i + 1] != "-":
+                names.append(posixpath.basename(toks[i + 1]))
+        for u in URL_RE.findall(seg):
+            base = posixpath.basename(urlsplit(u).path)
+            if base:
+                names.append(base)
+        for h in _bare_hosts(seg):
+            if "/" in h:
+                base = posixpath.basename(h)
+                if base:
+                    names.append(base)
+    return list(dict.fromkeys(n for n in names if n))
+
+
+def executed_files(line: str) -> list[str]:
+    """files the line tries to run: ./x, sh x, bash x, /tmp/x"""
+    out = []
+    for seg in segments(line):
+        toks = words(seg)
+        while toks and toks[0] in ("sudo", "nohup", "exec"):
+            toks = toks[1:]
+        if not toks:
+            continue
+        t = toks[0]
+        if t.startswith("./") or t.startswith("/tmp/") or t.startswith("/dev/shm/") or t.startswith("/var/tmp/"):
+            out.append(posixpath.basename(t))
+        elif posixpath.basename(t) in SHELLS and len(toks) > 1 and not toks[1].startswith("-"):
+            out.append(posixpath.basename(toks[1]))
+    return [o for o in out if o]
+
+
+def pipes_to_shell(line: str) -> bool:
+    return bool(_SHELL_PIPE.search(line or ""))
+
+
+def tool_names(line: str) -> list[str]:
+    """unusual program names in a line, e.g. xmrig or kinsing."""
+    names = []
+    for seg in segments(line):
+        n = command_name(seg)
+        if n.startswith("./"):
+            n = n[2:]
+        names.append(posixpath.basename(n))
+    names += executed_files(line) + downloaded_files(line)
+    out = []
+    for n in names:
+        stem = n.rsplit(".", 1)[0] if "." in n[1:] else n
+        stem = stem.lstrip(".")
+        if (len(stem) >= 4 and stem.lower() not in COMMON
+                and re.fullmatch(r"[A-Za-z0-9_.-]+", stem) and not stem.isdigit()):
+            out.append(n)
+    return list(dict.fromkeys(out))

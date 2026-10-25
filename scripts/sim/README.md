@@ -12,7 +12,7 @@ From the repo root:
 
 ```
 python3 -m venv .venv
-source .venv/bin/activate          # windows: .venv\Scriptsctivate
+source .venv/bin/activate          # windows: .venv\Scripts\activate
 pip install -r scripts/sim/requirements.txt
 ```
 
@@ -35,3 +35,17 @@ python scripts/sim/sim_bot.py --attempts 8  # longer login burst
 ```
 cd scripts/sim && python -m pytest -q
 ```
+
+## sim_human.py
+
+A person typing by hand: an OpenSSH client string and a pty, keys sent one at a time with uneven delays, a typo fixed with backspace (`cat /etc/hostanme` -> `hostname`), one typo left in (`sl`), wandering with `cd` and `ls`, reading `.bash_history`, `history`, `docker-compose.yml` and the nginx config. About 2 minutes.
+
+`--short` is 4 plain commands (`ls`, `cat README.md`, `whoami`, `uptime`), the kind of quick look a real visitor takes. It should come out human or unknown, never agent.
+
+```
+python scripts/sim/sim_human.py
+python scripts/sim/sim_human.py --short
+python scripts/sim/sim_human.py --seed 7    # same delays every run
+```
+
+The pty's line editor applies backspaces before the trap sees the line, so brain gets the corrected command. The `sl` slip is what shows up as a typo.

@@ -1,0 +1,125 @@
+/* book button sits in the top bar's reserved right corner */
+.toggle {
+  position: fixed;
+  top: 32px;
+  right: 40px;
+  z-index: 31;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-deep);
+  background: var(--blue);
+  color: var(--gold-light);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 2px rgba(240, 207, 106, 0.35);
+  transition: transform 0.15s ease-out;
+}
+.toggle:not(:disabled):hover {
+  background: #2b4ea6;
+  border-color: var(--gold);
+}
+.toggle:active {
+  transform: scale(0.96);
+}
+.page {
+  position: fixed;
+  z-index: 26;
+  top: 100px;
+  right: 20px;
+  width: min(420px, calc(100vw - 40px));
+  max-height: calc(100dvh - 200px);
+  overflow: auto;
+  padding: 22px 24px 18px;
+  transform-origin: right center;
+  transform-style: preserve-3d;
+}
+.close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+.lede {
+  margin: 10px 0 12px;
+  font-size: 16px;
+}
+.kinds,
+.marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 9px;
+}
+.kinds li,
+.marks li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  font-size: 15px;
+  line-height: 1.3;
+}
+.kinds small {
+  display: block;
+  color: var(--muted);
+  font-size: 14px;
+}
+.kinds em {
+  font-style: normal;
+  color: var(--muted);
+}
+.dot {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -3px 4px rgba(0, 0, 0, 0.25),
+    0 0 0 2px var(--bg),
+    0 0 0 3px var(--gold-deep);
+}
+.swatch {
+  flex: none;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font: 600 11px var(--font-ui);
+}
+.aura {
+  background: radial-gradient(circle, var(--kind-bot) 35%, rgba(200, 65, 43, 0.85) 40%, transparent 72%);
+}
+.slime {
+  background: radial-gradient(ellipse at 50% 70%, rgba(79, 138, 60, 0.9), rgba(79, 138, 60, 0.35));
+  border-radius: 50% 50% 40% 40%;
+}
+.dragon {
+  background: linear-gradient(90deg, #7a1010, var(--primary));
+  clip-path: polygon(0 50%, 30% 0, 50% 40%, 70% 0, 100% 50%, 50% 100%);
+}
+.guest {
+  border: 2px solid var(--gold);
+  box-shadow: 0 0 8px var(--gold-light);
+}
+.visits {
+  background: var(--gold);
+  color: var(--ink);
+}
+.sim {
+  background: var(--midnight-2);
+  color: var(--bg);
+}
+.foot {
+  margin-top: 14px;
+  font-size: 14px;
+  font-style: italic;
+  color: var(--muted);
+}

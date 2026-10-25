@@ -191,7 +191,7 @@ function Card({ reduce }: { reduce: boolean }) {
         <span className={styles.cardBody}>
           <Emblem row={row} />
           <span className={styles.cardText}>
-            <AnimatePresence mode="popLayout" initial={false}>
+            <AnimatePresence mode="wait" initial={false}>
               <motion.span
                 key={row.id}
                 className={styles.latest}

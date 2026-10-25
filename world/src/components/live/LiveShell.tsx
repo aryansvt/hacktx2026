@@ -17,7 +17,9 @@ import {
 import { useDomain } from "@/lib/store";
 import { useView, type Subview } from "@/lib/view-store";
 import { appearance, eventText, location } from "@/lib/domain";
-import { createMockAdapter, mockRequested } from "@/lib/mock";
+import { createMockAdapter } from "@/lib/mock";
+import { backoff, createLiveAdapter, fetchStats, useConn } from "@/lib/live";
+import { useDataMode, type DataMode } from "@/lib/data-mode";
 import type {
   DataAdapter,
   SessionResponse,
@@ -57,31 +59,47 @@ function Timeline() {
     observer.observe(chart.current);
     return () => observer.disconnect();
   }, []);
-  // mock history is explicitly separate from wild-only backend stats.
+  // live uses wild-only per_minute from /stats; mock uses fixture sessions
+  const perMinute = data.stats.per_minute;
+  const real = perMinute.length > 0;
   const recent = data.recent.map((id) => data.events[id]);
-  const latest = recent[0]?.timestamp ?? "2026-10-25T12:00:00Z";
+  const latest = real
+    ? new Date().toISOString()
+    : (recent[0]?.timestamp ?? "2026-10-25T12:00:00Z");
   const counts = Array.from({ length: bucketCount }, (_, i) => {
     const end =
       Date.parse(latest) -
       ((bucketCount - 1 - i) * 24 * 60 * 60 * 1000) / bucketCount;
     const start = end - (24 * 60 * 60 * 1000) / bucketCount;
+    const inBucket = (t: string) =>
+      Date.parse(t) > start && Date.parse(t) <= end;
+    const time = new Date(end).toISOString().slice(11, 16);
+    if (real) {
+      const rows = perMinute.filter((m) => inBucket(m.t));
+      const sum = (k: "bot" | "human" | "agent") =>
+        rows.reduce((n, m) => n + m[k], 0);
+      return {
+        time,
+        bot: sum("bot"),
+        human: sum("human"),
+        agent: sum("agent"),
+      };
+    }
     const rows = Object.values(data.sessions).filter(
-      (e) =>
-        e.source === "mock" &&
-        Date.parse(e.started_at) > start &&
-        Date.parse(e.started_at) <= end,
+      (e) => e.source === "mock" && inBucket(e.started_at),
     );
     return {
-      time: new Date(end).toISOString().slice(11, 16),
+      time,
       bot: rows.filter((e) => e.attacker.kind === "bot").length,
       human: rows.filter((e) => e.attacker.kind === "human").length,
       agent: rows.filter((e) => e.attacker.kind === "agent").length,
     };
   });
+  const peak = Math.max(1, ...counts.map((c) => c.bot + c.human + c.agent));
   return (
     <div
       className={styles.timeline}
-      aria-label="Timeline, mock history over 24 hours"
+      aria-label="Timeline, attacks over 24 hours"
     >
       <strong>Timeline</strong>
       <span className={styles.live}>LIVE</span>
@@ -92,13 +110,12 @@ function Timeline() {
               key={i}
               className={styles.bar}
               tabIndex={0}
-              aria-label={`${c.time} UTC: ${c.bot + c.human + c.agent} mock visits`}
+              aria-label={`${c.time} UTC: ${c.bot + c.human + c.agent} visits`}
             >
               <span
                 style={{
                   height:
-                    (Math.min(28, c.bot * 3 + c.human * 3 + c.agent * 3) *
-                      c.agent) /
+                    (((28 * (c.bot + c.human + c.agent)) / peak) * c.agent) /
                     Math.max(1, c.bot + c.human + c.agent),
                   background: "#8257a6",
                 }}
@@ -106,8 +123,7 @@ function Timeline() {
               <span
                 style={{
                   height:
-                    (Math.min(28, c.bot * 3 + c.human * 3 + c.agent * 3) *
-                      c.human) /
+                    (((28 * (c.bot + c.human + c.agent)) / peak) * c.human) /
                     Math.max(1, c.bot + c.human + c.agent),
                   background: "#287dd0",
                 }}
@@ -116,8 +132,7 @@ function Timeline() {
                 style={{
                   height: Math.max(
                     1,
-                    (Math.min(28, c.bot * 3 + c.human * 3 + c.agent * 3) *
-                      c.bot) /
+                    (((28 * (c.bot + c.human + c.agent)) / peak) * c.bot) /
                       Math.max(1, c.bot + c.human + c.agent),
                   ),
                   background: c.bot ? "#527845" : "var(--gold)",
@@ -417,26 +432,43 @@ export default function LiveShell() {
     lineRef = useRef<SVGPolylineElement>(null),
     feedRef = useRef<HTMLDivElement>(null);
   const priorSurface = useRef(view.surface);
-  const enabled = mockRequested(process.env.NEXT_PUBLIC_MOCK);
+  const { mode, choose, toggle } = useDataMode();
+  const conn = useConn((s) => s.conn);
   useEffect(() => {
-    if (!enabled) return;
-    const current = createMockAdapter();
+    if (!mode) return;
+    const current = mode === "mock" ? createMockAdapter() : createLiveAdapter();
     let active = true;
     let unsubscribe = () => {};
-    current.snapshot().then((s) => {
-      if (active) {
-        useDomain.getState().hydrate(s);
-        setAdapter(current);
-        unsubscribe = current.subscribe(useDomain.getState().ingest);
-      }
-    });
+    let poll: ReturnType<typeof setInterval> | undefined;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const load = (tries = 0) =>
+      current
+        .snapshot()
+        .then((s) => {
+          if (!active) return;
+          useDomain.getState().hydrate(s);
+          setAdapter(current);
+          unsubscribe = current.subscribe(useDomain.getState().ingest);
+          if (current.mode === "live")
+            poll = setInterval(() => {
+              fetchStats()
+                .then((st) => active && useDomain.getState().setStats(st))
+                .catch(() => {});
+            }, 10_000);
+        })
+        .catch(() => {
+          if (active) retry = setTimeout(() => load(tries + 1), backoff(tries));
+        });
+    load();
     return () => {
       active = false;
+      clearInterval(poll);
+      clearTimeout(retry);
       unsubscribe();
       current.close();
       useDomain.getState().reset();
     };
-  }, [enabled]);
+  }, [mode]);
   useEffect(() => {
     if (view.surface === "activity") {
       if (feedRef.current)
@@ -539,27 +571,31 @@ export default function LiveShell() {
           </button>
         </div>
       </header>
-      <div className={styles.mode}>
-        <span>
-          {enabled
-            ? "Mock visits excluded from wild totals"
-            : "Live unavailable until M5"}
-        </span>
-        <label>
-          Data{" "}
-          <select
-            aria-label="Data mode"
-            value={enabled ? "mock" : "live"}
-            disabled={!enabled}
-            onChange={() => {}}
-          >
-            <option value="mock">Mock</option>
-            <option value="live" disabled>
-              Live (M5)
-            </option>
-          </select>
-        </label>
-      </div>
+      {mode === "live" && conn === "reconnecting" && (
+        <p className={styles.mode} role="status">
+          Reconnecting to the live feed…
+        </p>
+      )}
+      {toggle && mode && (
+        <div className={styles.mode}>
+          <span>
+            {mode === "mock"
+              ? "Mock data, not real traffic"
+              : "Live data from the honeypot"}
+          </span>
+          <label>
+            Data{" "}
+            <select
+              aria-label="Data mode"
+              value={mode}
+              onChange={(e) => choose(e.target.value as DataMode)}
+            >
+              <option value="live">Live</option>
+              <option value="mock">Mock</option>
+            </select>
+          </label>
+        </div>
+      )}
       <p className={`${styles.hint} ${shifted ? styles.shiftHint : ""}`}>
         {view.surface === "creature"
           ? "Selected creature stays visible"
@@ -580,10 +616,8 @@ export default function LiveShell() {
           </strong>
           <span>
             {latest
-              ? `${latest.geo.city ?? "Unknown city"} · ${age(latest, latest.timestamp)} · mock`
-              : enabled
-                ? "Loading mock encounters…"
-                : "Live connection is not implemented yet."}
+              ? `${latest.geo.city ?? "Unknown city"} · ${age(latest, latest.timestamp)}${mode === "mock" ? " · mock" : ""}`
+              : "Waiting for the next visitor…"}
           </span>
           <span>Click to view all activity</span>
         </button>
@@ -599,9 +633,7 @@ export default function LiveShell() {
           <h2 id="feed-heading" tabIndex={-1}>
             Live Feed
           </h2>
-          <p className={styles.subtitle}>
-            Newest first · select to fly there · mock
-          </p>
+          <p className={styles.subtitle}>Newest first · select to fly there</p>
           <button
             className={`${styles.icon} ${styles.filterButton}`}
             disabled
@@ -656,7 +688,9 @@ export default function LiveShell() {
             ))}
             {!events.length && (
               <p className={styles.empty}>
-                {ready ? "No encounters yet." : "Waiting for mock data."}
+                {ready
+                  ? "No encounters yet."
+                  : "Waiting for the first visitor."}
               </p>
             )}
           </div>

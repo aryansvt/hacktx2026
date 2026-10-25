@@ -66,11 +66,18 @@ export function ingest(state: Domain, event: AttackEvent): Domain {
           : history.some((e) => e.type === "login_fail")
             ? "at_gate"
             : (prior?.status ?? "approaching"),
-    login_fails: history.filter((e) => e.type === "login_fail").length,
+    // rest summaries may know more than the local event window
+    login_fails: Math.max(
+      prior?.login_fails ?? 0,
+      history.filter((e) => e.type === "login_fail").length,
+    ),
     command_count:
       ended?.type === "session_end"
         ? ended.detail.command_count
-        : history.filter((e) => e.type === "command").length,
+        : Math.max(
+            prior?.command_count ?? 0,
+            history.filter((e) => e.type === "command").length,
+          ),
     story:
       history.findLast((e) => e.type === "story")?.detail.story ??
       prior?.story ??
@@ -78,13 +85,14 @@ export function ingest(state: Domain, event: AttackEvent): Domain {
   };
   const sessions = { ...state.sessions, [session.session_id]: session };
   const attackers = { ...state.attackers };
-  const key = event.attacker.ip_hash;
+  // guests have no ip_hash, so each guest visit is its own creature
+  const key = creatureKey(event);
   if (key) {
     const visits = Object.values(sessions)
-      .filter((s) => s.attacker.ip_hash === key)
+      .filter((s) => creatureKey(s) === key)
       .sort((a, b) => b.started_at.localeCompare(a.started_at));
     const all = Object.values(events)
-      .filter((e) => e.attacker.ip_hash === key)
+      .filter((e) => creatureKey(e) === key)
       .sort(eventOrder);
     const latest = all.at(-1)!;
     const classified = all.findLast((e) => e.attacker.kind !== "unknown");
@@ -98,7 +106,10 @@ export function ingest(state: Domain, event: AttackEvent): Domain {
     attackers[key] = {
       ip_hash: key,
       visits: Math.max(old?.visits ?? 0, visits.length),
-      first_seen: visits.at(-1)!.started_at,
+      first_seen:
+        old && old.first_seen < visits.at(-1)!.started_at
+          ? old.first_seen
+          : visits.at(-1)!.started_at,
       last_seen: latest.timestamp,
       latest_session_id: latest.session_id,
       source: latest.source,
@@ -114,7 +125,12 @@ export function ingest(state: Domain, event: AttackEvent): Domain {
         threat: profile.threat,
       },
       max_threat: maxThreat,
-      session_ids: visits.map((s) => s.session_id).slice(0, 50),
+      session_ids: [
+        ...new Set([
+          ...visits.map((s) => s.session_id),
+          ...(old?.session_ids ?? []),
+        ]),
+      ].slice(0, 50),
     };
   }
   const recent = Object.values(events)
@@ -132,6 +148,10 @@ export function ingest(state: Domain, event: AttackEvent): Domain {
     attackers,
   };
 }
+export const creatureKey = (x: {
+  session_id: string;
+  attacker: { ip_hash: string | null };
+}) => x.attacker.ip_hash ?? `guest:${x.session_id}`;
 export function appearance(a: AttackerProfile, max: Threat = a.threat) {
   if (max === "critical")
     return { name: "Dragon", variant: "dragon", color: "#ad392b" };

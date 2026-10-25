@@ -1,5 +1,5 @@
 import { create } from "zustand";
-export type Subview = "overview" | "replay" | "details" | "dossier";
+export type Subview = "overview" | "replay" | "story" | "details" | "dossier";
 interface View {
   surface: "none" | "activity" | "creature";
   subview: Subview;

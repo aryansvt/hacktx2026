@@ -3,12 +3,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import Ajv from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import {
-  fixtures,
-  fixtureEvent,
-  createMockAdapter,
-  mockRequested,
-} from "../src/lib/mock";
+import { fixtures, fixtureEvent, createMockAdapter } from "../src/lib/mock";
+import { envMode } from "../src/lib/data-mode";
+import { backoff } from "../src/lib/live";
+import { creatureKey } from "../src/lib/domain";
 import {
   emptyDomain,
   ingest,
@@ -97,7 +95,43 @@ test("subview back restores overview and close preserves activity source", () =>
   assert.equal(useView.getState().surface, "activity");
 });
 test("configuration compares the flag explicitly", () => {
-  assert.equal(mockRequested("0"), false);
-  assert.equal(mockRequested("1"), true);
-  assert.equal(mockRequested(undefined), true);
+  assert.equal(envMode("0"), "live");
+  assert.equal(envMode("1"), "mock");
+  assert.equal(envMode(undefined), "live");
+  assert.equal(envMode("true"), "live");
+});
+
+test("reconnect backoff is 1, 2, 4 and caps at 10s", () => {
+  assert.deepEqual(
+    [0, 1, 2, 3, 4, 9].map(backoff),
+    [1000, 2000, 4000, 8000, 10000, 10000],
+  );
+});
+test("guest visits without ip_hash become their own creature", () => {
+  const e = fixtureEvent(
+    2,
+    "guest-1",
+    "session_start",
+    { guest_name: "Ada" },
+    1,
+  );
+  const guest = {
+    ...e,
+    source: "guest" as const,
+    attacker: { ...e.attacker, ip_hash: null },
+  };
+  assert.equal(creatureKey(guest), "guest:guest-1");
+  const state = ingest(emptyDomain(), guest);
+  assert.ok(state.attackers["guest:guest-1"]);
+});
+test("live events never lower rest session counts", () => {
+  const e = fixtureEvent(0, "s1", "login_fail", { username: "root" }, 1);
+  const base = ingest(emptyDomain(), e);
+  base.sessions.s1 = { ...base.sessions.s1, login_fails: 9, command_count: 4 };
+  const next = ingest(
+    base,
+    fixtureEvent(0, "s1", "login_fail", { username: "admin" }, 2),
+  );
+  assert.equal(next.sessions.s1.login_fails, 9);
+  assert.equal(next.sessions.s1.command_count, 4);
 });

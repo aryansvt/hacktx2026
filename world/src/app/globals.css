@@ -8,6 +8,21 @@
   --blue: #1f3c88;
   --primary: #c8412b;
   --radius: 3px;
+  /* night sky behind the globe and gold leaf ornament */
+  --midnight: #0b1330;
+  --midnight-2: #14204a;
+  --gold-light: #f0cf6a;
+  --gold-deep: #a87c14;
+  --parchment-shadow: 0 10px 30px rgba(11, 19, 48, 0.35);
+  --kind-bot: #4f8a3c;
+  --kind-human: #2f6fd6;
+  --kind-agent: #8e5bd0;
+  --kind-unknown: #7d7f88;
+  --threat-low: #4f8a3c;
+  --threat-med: #d4a52b;
+  --threat-high: #c8412b;
+  --threat-critical: #7a1010;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
   --font-body: "EB Garamond", Georgia, serif;
   --font-display: "Pirata One", Georgia, serif;
   --font-ui: Inter, Arial, sans-serif;

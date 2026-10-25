@@ -189,6 +189,3 @@ export function createMockAdapter(): DataAdapter {
     },
   };
 }
-// live is deliberately unavailable until M5, even when configured with "0".
-export const mockRequested = (value: string | undefined) =>
-  value === undefined || value === "1";

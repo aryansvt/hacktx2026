@@ -540,7 +540,7 @@ USR_BIN = """
 awk base64 basename bash cat chattr chgrp chmod chown clear cp crontab curl cut date dd df diff dirname
 dmesg docker dpkg du echo egrep env false fgrep file find free getent git grep groups gzip head hostname
 id ip journalctl kill last lastlog less ln ls lsb_release lscpu lsblk lsof md5sum mkdir mktemp more mount
-mv mysql nano nc netstat nohup nproc passwd perl pgrep pidof ping pkill printenv printf ps psql pwd python3
+mv nano nc netstat nohup nproc passwd perl pgrep pidof ping pkill printenv printf ps psql pwd python3
 readlink rm rmdir rsync scp screen sed sftp sh sha256sum sleep sort ss ssh stat su sudo systemctl tail tar
 tee top touch tr true tty type umount uname uniq unzip uptime users vi vim w wc wget whereis which who whoami
 xargs yes zip apt apt-get apt-cache
@@ -887,8 +887,8 @@ def build_system() -> dict:
 
 def main() -> None:
     DATA.mkdir(parents=True, exist_ok=True)
-    (DATA / "fs_base.json").write_text(json.dumps(build_fs(), indent=1, ensure_ascii=True) + "\n", encoding="utf-8")
-    (DATA / "system.json").write_text(json.dumps(build_system(), indent=1, ensure_ascii=True) + "\n", encoding="utf-8")
+    for name, data in (("fs_base.json", build_fs()), ("system.json", build_system())):
+        (DATA / name).write_text(json.dumps(data, indent=1, ensure_ascii=True) + "\n", encoding="utf-8", newline="\n")
     print("wrote", DATA / "fs_base.json", DATA / "system.json")
 
 

@@ -29,3 +29,23 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect_ex", boom)
     monkeypatch.setattr(socket, "create_connection", boom)
     monkeypatch.setattr(socket, "getaddrinfo", boom)
+
+
+@pytest.fixture(scope="session")
+def engine():
+    from honeypot.shell.engine import Engine
+
+    return Engine()
+
+
+@pytest.fixture
+def sh(engine, base):
+    """run lines in one fresh root session. sh.state exposes the session."""
+    state = engine.new_state("root", tty=False, base=base)
+
+    def run(line: str) -> str:
+        return engine.run(state, line).out
+
+    run.state = state
+    run.engine = engine
+    return run

@@ -55,9 +55,13 @@ class Node:
     mtime: float = 0.0
     content: str = ""
     target: str = ""
+    # shown size for simulated downloads, so we don't hold megabytes of filler
+    fake_size: int | None = None
 
     @property
     def size(self) -> int:
+        if self.fake_size is not None:
+            return self.fake_size
         if self.type == "dir":
             return 4096
         if self.type == "link":
@@ -276,7 +280,7 @@ class Overlay:
                 raise FsError("EISDIR", path)
             if not self.allowed(node, user, 0o2):
                 raise FsError("EACCES", path)
-            new = replace(node, content=(node.content + content) if append else content, mtime=time.time())
+            new = replace(node, content=(node.content + content) if append else content, mtime=time.time(), fake_size=None)
         else:
             self._writable_parent(real, user)
             new = Node("file", mode, owner=user, group=user, mtime=time.time(), content=content)
@@ -357,6 +361,25 @@ class Overlay:
         self._writable_parent(real_dst, user)
         self._put(real_dst, replace(node, mtime=time.time()))
         self._put(real_src, None)
+
+    def symlink(self, target: str, path: str, user: str = "root") -> None:
+        real = self.realpath(path, follow_last=False)
+        if self._raw(real) is not None:
+            raise FsError("EEXIST", path)
+        self._writable_parent(real, user)
+        self._put(real, Node("link", 0o777, owner=user, group=user, mtime=time.time(), target=target))
+
+    def write_node(self, path: str, node: Node, user: str = "root") -> None:
+        """place a prepared file node (used for simulated downloads)."""
+        real = self.realpath(path)
+        existing = self._raw(real)
+        if existing is not None and existing.type == "dir":
+            raise FsError("EISDIR", path)
+        if existing is None:
+            self._writable_parent(real, user)
+        elif not self.allowed(existing, user, 0o2):
+            raise FsError("EACCES", path)
+        self._put(real, node)
 
     def chmod(self, path: str, mode: int, user: str = "root") -> None:
         node = self.stat(path, user)

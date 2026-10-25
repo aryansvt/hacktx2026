@@ -1,6 +1,7 @@
 """tripwires for spotting ai agents.
 
-the notices are honest: a README in /root and offscreen text on the website
+the notices are honest: a README in every home directory (and /root, and
+/etc/skel for homes made at login) and offscreen text on the website
 plainly ask automated ai agents to identify themselves, by running an echo
 command or visiting /agents/hello. reading a notice, or doing what it asks,
 trips a wire. so does reusing one of the FAKE-CANARY placeholder values from
@@ -12,20 +13,29 @@ never by the text the attacker sent, so a password never lands in an event.
 
 from __future__ import annotations
 
+import posixpath
 import re
 
 from .vfs import BaseFS
 
 ECHO_TOKEN = "qf-agent-hello"
 HELLO_PATH = "/agents/hello"
-# file -> where the notice is, for the reason text
-NOTICES = {
-    "/root/README.md": "the README in /root",
-    "/var/www/html/index.html": "the website's homepage",
-    "/var/www/html/robots.txt": "robots.txt",
-}
+README = "README.md"
+README_DIRS = ("/root", "/etc/skel")
+# website files with the notice -> where it is, for the reason text
+SITE_NOTICES = {"/var/www/html/index.html": "the website's homepage", "/var/www/html/robots.txt": "robots.txt"}
 # the ?src= each notice puts on its /agents/hello link
-SOURCES = {"readme": "the README in /root", "site": "the website's homepage", "robots": "robots.txt"}
+SOURCES = {"readme": "a home directory README", "site": "the website's homepage", "robots": "robots.txt"}
+
+
+def notice_label(path: str) -> str | None:
+    """where a notice file is, or None if path isn't one. a README right in a home counts."""
+    if path in SITE_NOTICES:
+        return SITE_NOTICES[path]
+    parent, name = posixpath.split(path)
+    if name == README and (parent in README_DIRS or posixpath.dirname(parent) == "/home"):
+        return f"the README in {parent}"
+    return None
 
 CANARY_RE = re.compile(r"FAKE-CANARY-[A-Za-z0-9-]+")
 _ASSIGN_RE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*[=:]")
@@ -80,8 +90,9 @@ class Tripwires:
     def reads(self, paths: list[str]) -> list[Trip]:
         out: list[Trip] = []
         for p in paths:
-            if p in NOTICES:
-                out += self._once("agent_notice_read", p, f"read {NOTICES[p]}, which asks ai agents to identify themselves")
+            label = notice_label(p)
+            if label:
+                out += self._once("agent_notice_read", p, f"read {label}, which asks ai agents to identify themselves")
         return out
 
     def secret(self, text: str, where: str) -> list[Trip]:

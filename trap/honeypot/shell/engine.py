@@ -44,7 +44,14 @@ class ShellState:
     display_port: int = 51022
     pid: int = 51234
     started: float = field(default_factory=time.time)
-    user_stack: list[tuple[str, str]] = field(default_factory=list)
+    # shells opened by sudo -i / sudo su: (user, cwd, env, login) to go back to on exit
+    user_stack: list[tuple[str, str, dict, bool]] = field(default_factory=list)
+    # checks a sudo password for the login user; the ssh layer sets it. never stores it
+    sudo_check: Callable[[str], bool] | None = None
+    # sudo's cached credential, like the real 15 minute timestamp
+    sudo_until: float = 0.0
+    # the ssh layer already asked for this line and gave up; sudo prints this
+    sudo_denied: str = ""
     killed: set[int] = field(default_factory=set)
     services: dict[str, str] = field(default_factory=dict)
     public_ip: str = "203.0.113.10"
@@ -95,7 +102,7 @@ class ShellState:
         return f"{self.user}@{self.hostname}:{cwd}{'#' if self.is_root else '$'} "
 
 
-_NOT_SNAPSHOT = {"fs", "system", "unknown"}
+_NOT_SNAPSHOT = {"fs", "system", "unknown", "sudo_check"}
 
 
 class Ctx:
@@ -214,7 +221,7 @@ class _Expander:
 class Engine:
     def __init__(self) -> None:
         # import for the registration side effects
-        from .commands import files, net, pkg, system, text, transfer  # noqa: F401
+        from .commands import files, net, pkg, sudo, system, text, transfer  # noqa: F401
 
     def new_state(self, user: str = "root", tty: bool = True, base: BaseFS | None = None, **kw) -> ShellState:
         fs = Overlay(base or load_base())
@@ -222,9 +229,15 @@ class Engine:
         entry = state.passwd_entry(user)
         home = entry[5] if entry else f"/home/{user}"
         if not fs.exists(home):
-            # logins like the guest user have no seeded home; make one in the overlay
+            # logins like the guest user have no seeded home; make one from /etc/skel, like useradd -m
             fs.mkdir(home, parents=True)
             fs.chown(home, user, user)
+            for name in fs.listdir("/etc/skel") if fs.is_dir("/etc/skel") else []:
+                src = fs.get(f"/etc/skel/{name}")
+                if src is not None and src.type == "file":
+                    dst = posixpath.join(home, name)
+                    fs.write(dst, src.content, mode=src.mode)
+                    fs.chown(dst, user, user)
         state.cwd = home
         state.env = default_env(state, user, home)
         try:

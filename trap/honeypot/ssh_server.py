@@ -19,8 +19,10 @@ from .auth import Auth
 from .config import Settings
 from .events import SessionEvents, Sink
 from .llm.fallback import LLMFallback, LLMSession
+from .shell.commands.sudo import TTL as SUDO_TTL
+from .shell.commands.sudo import needs_password
 from .shell.engine import Engine, ShellState, load_base
-from .tripwires import NOTICES, Trip, Tripwires, find_canaries
+from .tripwires import Trip, Tripwires, find_canaries, notice_label
 from .vfs import Overlay
 
 log = logging.getLogger("honeypot.ssh")
@@ -129,6 +131,14 @@ class TrapServer(asyncssh.SSHServer):
         self.trip(trips)
         return True
 
+    def check_sudo(self, state: ShellState, password: str) -> bool:
+        """sudo's password check: the login user's own ssh password, guest and team only."""
+        # a canary tried as the sudo password still trips; only its label is kept
+        self.trip(self.wires.secret(password, "sudo password"))
+        ok = state.user == self.user and self.app.auth.sudo_ok(self.user, password)
+        del password
+        return ok
+
     def trip(self, trips: list[Trip]) -> None:
         if self.events is None:
             return
@@ -193,11 +203,12 @@ class TrapApp:
             # channels on one connection share a filesystem, like one real box
             if server.fs is None:
                 server.fs = state.fs
-                server.fs.watch = frozenset(NOTICES)
+                server.fs.watch = notice_label
             else:
                 state.fs = server.fs
             if self.fallback and server.llm is None:
                 server.llm = self.fallback.session(server.events.session_id if server.events else "")
+            state.sudo_check = lambda pw: server.check_sudo(state, pw)
             if process.command is not None:
                 code = await self.run_line(server, state, process.command, process)
                 process.exit(code)
@@ -212,7 +223,9 @@ class TrapApp:
 
     async def run_line(self, server: TrapServer, state: ShellState, line: str, process: asyncssh.SSHServerProcess) -> int:
         server.commands += 1
-        state.history.append(line)
+        # what gets logged and remembered never holds our guest or team password (sudo -S)
+        shown = self.auth.mask(line)
+        state.history.append(shown)
         t0 = time.perf_counter()
         words = line.split()
         if words and words[0].rsplit("/", 1)[-1] in TRANSFER:
@@ -226,8 +239,8 @@ class TrapApp:
             out, code, answered_by = res.out, res.code, "engine"
         ms = int((time.perf_counter() - t0) * 1000)
         if server.events:
-            server.events.command(line, out, ms, answered_by)
-        server.trip(server.wires.command(line) + server.wires.reads(state.fs.drain_reads()))
+            server.events.command(shown, out, ms, answered_by)
+        server.trip(server.wires.command(shown) + server.wires.reads(state.fs.drain_reads()))
         if out:
             process.stdout.write(out)
         return code & 0xFF
@@ -259,5 +272,51 @@ class TrapApp:
             line = line.rstrip("\r\n")
             if not line.strip():
                 continue
-            code = await self.run_line(server, state, line, process)
+            if needs_password(state, line):
+                # the engine can't stop mid-line to read input, so sudo's prompt comes first
+                await self.ask_sudo_password(state, process)
+            try:
+                code = await self.run_line(server, state, line, process)
+            finally:
+                state.sudo_denied = ""
         process.exit(code)
+
+    async def ask_sudo_password(self, state: ShellState, process: asyncssh.SSHServerProcess) -> None:
+        """three tries, echo off, like sudo. a right password caches the credential."""
+        out = process.stdout
+        set_echo = getattr(process.channel, "set_echo", None)
+        for attempt in range(3):
+            out.write(f"[sudo] password for {state.user}: ")
+            if set_echo:
+                set_echo(False)
+            try:
+                while True:
+                    try:
+                        password = await asyncio.wait_for(process.stdin.readline(), self.settings.idle_timeout)
+                        break
+                    except asyncssh.TerminalSizeChanged:
+                        continue
+            except asyncio.TimeoutError:
+                out.write("\n")
+                state.sudo_denied = "sudo: timed out reading password\nsudo: a password is required\n"
+                return
+            except (asyncssh.BreakReceived, asyncssh.SignalReceived):
+                out.write("\n")
+                state.sudo_denied = "sudo: a password is required\n"
+                return
+            finally:
+                if set_echo:
+                    set_echo(True)
+            # echo was off, so the enter key printed nothing
+            out.write("\n")
+            if not password:
+                state.sudo_denied = "sudo: no password was provided\nsudo: a password is required\n"
+                return
+            ok = state.sudo_check is not None and state.sudo_check(password.rstrip("\r\n"))
+            del password
+            if ok:
+                state.sudo_until = time.time() + SUDO_TTL
+                return
+            if attempt < 2:
+                out.write("Sorry, try again.\n")
+        state.sudo_denied = "sudo: 3 incorrect password attempts\n"

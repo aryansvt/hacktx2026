@@ -48,6 +48,17 @@ class Auth:
             ok |= _same(username, user) & _same(password, pw)
         return "wild" if ok else None
 
+    def sudo_ok(self, username: str, password: str) -> bool:
+        """sudo takes the login's own password, and only guest and team have one it accepts."""
+        return self.check(username, password) in ("guest", "team")
+
+    def mask(self, text: str) -> str:
+        """hide our own guest and team passwords if someone types them into a command (sudo -S)."""
+        for pair in (self._guest, self._team):
+            if pair and len(pair[1]) >= 4 and pair[1] in text:
+                text = text.replace(pair[1], "********")
+        return text
+
     def source_for(self, ip: str, login_source: str | None) -> str:
         """team ips win over anything a login says."""
         if ip in self.team_ips:

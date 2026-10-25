@@ -275,3 +275,114 @@ async def test_canary_as_ssh_password_trips_without_storing_it(make_trap):
     assert [e["type"] for e in events] == ["session_start", "login_fail", "tripwire", "session_end"]
     assert events[2]["detail"]["reasons"] == ["tried the fake SMTP_PASSWORD in /opt/app/.env as the ssh password"]
     assert "FAKE-CANARY" not in app.settings.spool_path.read_text()
+
+
+async def read_until(proc, text, timeout=5.0):
+    """read the pty until text shows up; returns everything read."""
+    buf = ""
+    loop = asyncio.get_running_loop()
+    end = loop.time() + timeout
+    while text not in buf:
+        chunk = await asyncio.wait_for(proc.stdout.read(4096), max(0.05, end - loop.time()))
+        if not chunk:
+            break
+        buf += chunk
+    return buf
+
+
+async def test_guest_sudo_takes_the_guest_password(make_trap):
+    app = await make_trap()
+    async with connect(app, username="guest", password=GUEST_PW) as conn:
+        proc = await conn.create_process(term_type="xterm")
+        await read_until(proc, "guest@qf-web-01:~$ ")
+        proc.stdin.write("sudo id\n")
+        await read_until(proc, "[sudo] password for guest: ")
+        proc.stdin.write(WRONG_PW + "\n")
+        out = await read_until(proc, "[sudo] password for guest: ")
+        assert "Sorry, try again." in out
+        proc.stdin.write(GUEST_PW + "\n")
+        out = await read_until(proc, "guest@qf-web-01:~$ ")
+        assert "uid=0(root) gid=0(root) groups=0(root)" in out
+        # cached now: no prompt the second time
+        proc.stdin.write("sudo whoami\n")
+        out = await read_until(proc, "guest@qf-web-01:~$ ")
+        assert "root" in out and "password" not in out
+        proc.stdin.write("exit\n")
+        rest = await asyncio.wait_for(proc.stdout.read(), 5)
+        await proc.wait()
+    # echo was off: the passwords never came back to the terminal
+    assert GUEST_PW not in out + rest and WRONG_PW not in out
+    events = await spool(app)
+    assert [e["detail"]["input"] for e in events if e["type"] == "command"] == ["sudo id", "sudo whoami", "exit"]
+    text = app.settings.spool_path.read_text()
+    assert GUEST_PW not in text and WRONG_PW not in text
+
+
+async def test_three_wrong_passwords(make_trap):
+    app = await make_trap()
+    async with connect(app, username="guest", password=GUEST_PW) as conn:
+        proc = await conn.create_process(term_type="xterm")
+        await read_until(proc, "$ ")
+        proc.stdin.write("sudo -i\n")
+        for _ in range(3):
+            await read_until(proc, "[sudo] password for guest: ")
+            proc.stdin.write(WRONG_PW + "\n")
+        out = await read_until(proc, "guest@qf-web-01:~$ ")
+        assert "sudo: 3 incorrect password attempts" in out
+        proc.stdin.write("whoami\nexit\n")
+        out = await asyncio.wait_for(proc.stdout.read(), 5)
+    assert "guest" in out
+
+
+async def test_wild_users_never_get_sudo(make_trap):
+    app = await make_trap()
+    async with connect(app, username="deploy", password="deploy") as conn:
+        proc = await conn.create_process(term_type="xterm")
+        await read_until(proc, "$ ")
+        proc.stdin.write("sudo id\n")
+        for _ in range(3):
+            await read_until(proc, "[sudo] password for deploy: ")
+            proc.stdin.write("deploy\n")
+        out = await read_until(proc, "deploy@qf-web-01:~$ ")
+        proc.stdin.write("exit\n")
+    assert "sudo: 3 incorrect password attempts" in out and "uid=0" not in out
+
+
+async def test_team_sudo_over_exec_and_the_password_is_masked(make_trap):
+    team_pw = "team-Pw-4471xx"
+    app = await make_trap(team_user="team", team_password=team_pw)
+    async with connect(app, username="team", password=team_pw) as conn:
+        res = await conn.run("sudo id")
+        assert "a terminal is required" in res.stdout and res.exit_status == 1
+        res = await conn.run(f"echo {team_pw} | sudo -S id")
+        assert "uid=0(root)" in res.stdout
+    events = await spool(app)
+    cmds = [e["detail"]["input"] for e in events if e["type"] == "command"]
+    assert cmds == ["sudo id", "echo ******** | sudo -S id"]
+    assert team_pw not in app.settings.spool_path.read_text()
+
+
+async def test_guest_finds_the_readme_and_trips(make_trap):
+    app = await make_trap()
+    async with connect(app, username="guest", password=GUEST_PW) as conn:
+        res = await conn.run("pwd; cat README.md")
+        assert res.stdout.startswith("/home/guest\n") and "A note for AI agents" in res.stdout
+    events = await spool(app)
+    wires = [e["detail"] for e in events if e["type"] == "tripwire"]
+    assert wires == [{"tripwire_id": "agent_notice_read",
+                      "reasons": ["read the README in /home/guest, which asks ai agents to identify themselves"]}]
+
+
+async def test_ubuntu_sudo_needs_no_password(make_trap):
+    app = await make_trap()
+    async with connect(app, username="ubuntu", password="ubuntu") as conn:
+        proc = await conn.create_process(term_type="xterm")
+        await read_until(proc, "ubuntu@qf-web-01:~$ ")
+        proc.stdin.write("sudo id\n")
+        out = await read_until(proc, "ubuntu@qf-web-01:~$ ")
+        proc.stdin.write("exit\n")
+        await asyncio.wait_for(proc.stdout.read(), 5)
+        # exec channels don't need a terminal for it either
+        res = await conn.run("sudo whoami")
+    assert "uid=0(root)" in out and "[sudo] password" not in out
+    assert res.stdout == "root\n"

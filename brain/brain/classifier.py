@@ -10,18 +10,20 @@ import re
 import statistics
 from dataclasses import dataclass
 
-from .commands import COMMON, command_name, segments
+from .commands import COMMON, command_name, is_download, segments
 from .session import Session
 
 WEIGHTS = {
     # timing between commands
     "timing_clockwork": 3.0,   # fast and regular
     "timing_fast": 1.5,        # fast, not regular
-    "timing_steady": 2.5,      # steady multi-second pauses
+    "timing_steady": 2.5,      # truly regular multi-second pauses
+    "timing_even": 1.0,        # roughly even pauses; people manage that too
     "timing_irregular": 2.5,   # bursty, idle spikes
     # what they type
     "bot_script": 3.0,
     "semicolon_chain": 1.5,
+    "plain_commands": 2.0,     # short single commands, one per line
     "typos": 2.5,
     "interactive_tools": 1.5,
     "wandering": 1.0,
@@ -34,7 +36,7 @@ WEIGHTS = {
     # ssh client string
     "client_bot": 1.5,
     "client_library": 0.75,      # split bot / agent
-    "client_interactive": 0.75,  # split human / agent
+    "client_interactive": 1.0,   # openssh, putty and friends lean human
     # login attempts
     "login_spray": 2.0,
     "dictionary_users": 1.0,
@@ -47,7 +49,7 @@ WEIGHTS = {
 }
 
 # signals that count for two labels at once
-SHARED_KEYS = {"client_library", "client_interactive", "first_try_login"}
+SHARED_KEYS = {"client_library", "first_try_login"}
 
 # how much total weight before confidence stops being scaled down
 MIN_EVIDENCE = 6.0
@@ -62,7 +64,14 @@ FAST_MEDIAN_S = 1.0
 CLOCKWORK_CV = 0.5
 STEADY_MEDIAN_S = (1.5, 25.0)
 STEADY_CV = 0.6
+# under this the pauses are regular enough to count fully
+REGULAR_CV = 0.25
 IRREGULAR_CV = 0.8
+# commands that end a session; they say nothing about pacing
+LEAVING = {"exit", "logout"}
+# a plain command line: one command, this short
+PLAIN_MAX_LEN = 24
+PLAIN_SHARE = 0.7
 # steady needs this many pauses between turns; a few gaps look steady by chance
 STEADY_MIN_GAPS = 4
 # commands closer than this came from one turn (an agent's parallel tool calls)
@@ -129,7 +138,9 @@ DOC_READERS = {"cat", "head", "less", "more", "tail", "bat", "nl"}
 DOC_FILE = re.compile(r"readme|\.md\b|notes|todo|instructions|changelog|\.txt\b|/docs?/", re.I)
 HELP_FLAG = re.compile(r"(?:^|\s)(?:--help|-h)(?:\s|$)")
 # echo ---, echo '=== nginx ===', echo ===README: section markers in a batched line
-SECTION_MARK = re.compile(r"""(?:^|[;&|]\s*)echo\s+['"]?(?:-{3,}|={3,}|#{3,})""")
+SECTION_MARK = re.compile(r"""(?:^|[;&|]\s*)echo\s+['"]?(?:-{2,}|={2,}|#{3,})""")
+STDERR_GUARD = re.compile(r"2>\s*(?:/dev/null|&1)")
+NOT_FOUND = re.compile(r"command not found")
 TEXT_TOKEN = re.compile(r"(?:~|\.{0,2})?/[\w.\-/]+|\b[\w\-]+\.(?:sh|py|txt|env|md|conf|json|ya?ml|cfg|key|pem)\b")
 
 
@@ -150,6 +161,8 @@ def _osa(a: str, b: str) -> int:
 
 
 def _typo(token: str) -> bool:
+    # (grep ...) and {cmd;} are subshells and groups, not slips
+    token = token.strip("(){}")
     if not token or token in COMMON or "/" in token or len(token) < 2:
         return False
     if re.fullmatch(r"(?:cd|ls)[.\-/]\S*", token):
@@ -160,7 +173,11 @@ def _typo(token: str) -> bool:
 # ---- signals ----
 
 def timing_signals(s: Session) -> list[Signal]:
-    ts = [c["ts"] for c in s.commands]
+    cmds = s.commands
+    # the closing exit isn't a pause between real commands
+    if cmds and command_name(cmds[-1]["input"]) in LEAVING:
+        cmds = cmds[:-1]
+    ts = [c["ts"] for c in cmds]
     if len(ts) < 3:
         return []
     gaps = [max(0.0, b - a) for a, b in zip(ts, ts[1:])]
@@ -178,7 +195,9 @@ def timing_signals(s: Session) -> list[Signal]:
     if cv >= IRREGULAR_CV:
         return [Signal("human", "timing_irregular", "irregular pauses between commands")]
     if len(gaps) >= STEADY_MIN_GAPS and STEADY_MEDIAN_S[0] <= med <= STEADY_MEDIAN_S[1] and cv < STEADY_CV:
-        return [Signal("agent", "timing_steady", f"steady ~{med:.0f}s pauses, like waiting on a model")]
+        if cv < REGULAR_CV:
+            return [Signal("agent", "timing_steady", f"steady ~{med:.0f}s pauses, like waiting on a model")]
+        return [Signal("agent", "timing_even", f"fairly even ~{med:.0f}s pauses")]
     return []
 
 
@@ -194,19 +213,27 @@ def content_signals(s: Session) -> list[Signal]:
         if pat.search(joined):
             out.append(Signal("bot", "bot_script", f"runs a known bot script ({name})"))
             break
-    labeled = sum(1 for line in inputs if SECTION_MARK.search(line)) >= 2
-    if labeled:
-        out.append(Signal("agent", "labeled_batches", "batches commands with echo --- markers between them"))
+    # agent: batched lines with echo markers or 2>/dev/null guards. otherwise long chains are bot
+    if sum(1 for line in inputs if _agent_batch(line)) >= 2:
+        out.append(Signal("agent", "labeled_batches", "batches commands with echo markers and 2>/dev/null"))
     elif any(line.count(";") >= 3 for line in inputs):
         out.append(Signal("bot", "semicolon_chain", "long ; chained one-liners"))
 
-    # human: typos, backspaces, interactive tools, wandering
-    names = [command_name(seg) for line in inputs for seg in segments(line)]
+    # human: typos, backspaces, interactive tools, wandering, plain one-liners.
+    # an agent's batched lines aren't typed by hand, so they don't count here
+    names = [command_name(seg) for line in inputs if not _agent_batch(line) for seg in segments(line)]
     typo = next((n for n in names if _typo(n)), None)
+    missing = _not_found(s.commands)
     if any(ch in line for line in inputs for ch in ("\x7f", "\x08")):
         out.append(Signal("human", "typos", "backspaces in typed commands"))
     elif typo:
         out.append(Signal("human", "typos", f"typos like '{typo}'"))
+    elif missing:
+        out.append(Signal("human", "typos", f"mistyped '{missing}' (command not found)"[:120]))
+    typed = [line for line in inputs if command_name(line) not in LEAVING]
+    plain = sum(1 for line in typed if len(segments(line)) == 1 and len(line.strip()) <= PLAIN_MAX_LEN)
+    if len(typed) >= 3 and plain >= PLAIN_SHARE * len(typed):
+        out.append(Signal("human", "plain_commands", "types short single commands, one per line"))
     if any(n in INTERACTIVE_TOOLS for n in names):
         tool = next(n for n in names if n in INTERACTIVE_TOOLS)
         out.append(Signal("human", "interactive_tools", f"uses interactive tools ({tool})"))
@@ -222,6 +249,25 @@ def content_signals(s: Session) -> list[Signal]:
     if _follows_text(s.commands):
         out.append(Signal("agent", "follows_text", "follows instructions found in files"))
     return out
+
+
+def _agent_batch(line: str) -> bool:
+    """an agent's batched line: echo markers, or a long chain guarded with 2>/dev/null that fetches nothing."""
+    if SECTION_MARK.search(line):
+        return True
+    return line.count(";") >= 3 and bool(STDERR_GUARD.search(line)) and not is_download(line)
+
+
+def _not_found(commands: list[dict]) -> str | None:
+    """an unknown command typed on its own line, like a person's slip."""
+    for c in commands:
+        line = c["input"]
+        if len(segments(line)) != 1 or not NOT_FOUND.search(c.get("output", "")):
+            continue
+        name = command_name(line)
+        if name and name not in COMMON and "/" not in name:
+            return name
+    return None
 
 
 def _reads_docs(inputs: list[str]) -> bool:
@@ -266,7 +312,7 @@ def client_signals(s: Session) -> list[Signal]:
         return [Signal("bot", "client_library", r), Signal("agent", "client_library", r)]
     if INTERACTIVE_CLIENTS.search(short):
         r = f"interactive ssh client ({short})"
-        return [Signal("human", "client_interactive", r), Signal("agent", "client_interactive", r)]
+        return [Signal("human", "client_interactive", r)]
     return []
 
 

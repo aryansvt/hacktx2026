@@ -180,7 +180,7 @@ def test_prompt_example_is_not_one_of_our_creatures():
 
 def test_facts_spell_out_login_count_and_notable_commands():
     text = facts(polite_agent())
-    assert "login: succeeded on the first try, so it got inside the box" in text
+    assert "login: succeeded on the first try" in text
     assert "commands run: 5" in text
     notable = text.split("notable commands:\n", 1)[1]
     assert "cat /opt/app/.env" in notable and "whoami" not in notable
@@ -191,7 +191,7 @@ def test_facts_for_a_session_that_never_got_in():
     s.add_login(0, "root", False)
     s.add_login(1, "admin", False)
     text = facts(s)
-    assert "login: never got in: 2 failed tries, then it left" in text
+    assert "login: failed (2 failed tries), it never got in" in text
     assert "commands run: 0" in text and "notable commands" not in text
 
 
@@ -220,6 +220,9 @@ def test_problem_for_a_session_that_never_got_in():
     s.add_login(0, "root", False)
     assert "got inside" in problem("A shadowy stranger (unknown) slipped inside the box.", s)
     assert problem("A shadowy stranger (unknown) rattled the gate, but the gate held.", s) is None
+    # saying it never got inside is not a claim that it did
+    assert problem("A shadowy stranger (unknown) knocked once and never made it inside the box.", s) is None
+    assert problem("A shadowy stranger (unknown) didn't get inside the box and ran no commands.", s) is None
 
 
 def test_cursed_fae_may_be_called_fae_but_a_fae_is_never_cursed():

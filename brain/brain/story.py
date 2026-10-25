@@ -55,11 +55,18 @@ GOT_IN = re.compile(
     re.I,
 )
 RAN_N = re.compile(r"\bran (\d+) commands?", re.I)
+# "never made it inside the box" isn't a claim that it got in
+NEGATED = re.compile(r"\b(?:never|not|no|without|nor)\b|n't\b", re.I)
+
+
+def _claims(pattern: re.Pattern, text: str) -> bool:
+    """true if the pattern matches somewhere not negated just before it."""
+    return any(not NEGATED.search(text[max(0, m.start() - 25):m.start()]) for m in pattern.finditer(text))
 
 SYSTEM = """You narrate honeypot sessions as tiny storybook tales for a live 3D globe.
 Write 2 to 4 sentences of plain prose. Refer to the attacker as the creature you are given, and mention where it came from.
 The first time you name the creature, put the label you are given right after it in parentheses. For example, with the made-up creature "moss troll" and label "(example)": "A moss troll (example) stomped in from Reykjavik". Always use the creature and label you are given, never another one.
-Be playful, but stay true to the facts: do not invent actions, tools or outcomes that are not listed. Say whether it got in exactly as the login line says.
+Be playful, but stay true to the facts: do not invent actions, tools or outcomes that are not listed. Never contradict the login line or the command count, but don't recite them either.
 Never include IP addresses, passwords or full URLs. No titles, no lists, no quotes around the story."""
 
 
@@ -144,10 +151,10 @@ def login_line(s: Session) -> str:
     fails = s.login_fails
     tries = f"{fails} failed tr{'ies' if fails != 1 else 'y'}"
     if s.logged_in:
-        return f"succeeded {'on the first try' if not fails else f'after {tries}'}, so it got inside the box"
+        return f"succeeded {'on the first try' if not fails else f'after {tries}'}"
     if fails:
-        return f"never got in: {tries}, then it left"
-    return "never tried to log in and never got inside"
+        return f"failed ({tries}), it never got in"
+    return "it never tried to log in"
 
 
 def notable_commands(s: Session) -> list[str]:
@@ -209,7 +216,7 @@ def problem(text: str, s: Session) -> str | None:
             return f"it labels the creature ({other}), not ({what})"
     if s.logged_in and NEVER_IN.search(text):
         return "it says the creature never got in, but its login succeeded"
-    if not s.logged_in and GOT_IN.search(text):
+    if not s.logged_in and _claims(GOT_IN, text):
         return "it says the creature got inside, but it never logged in"
     m = RAN_N.search(text)
     if m and int(m.group(1)) != s.command_count:

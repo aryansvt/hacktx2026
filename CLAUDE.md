@@ -20,7 +20,7 @@ attacker ──ssh:22 / http:80──> trap ──HTTPS POST /ingest──> core
 - `trap/` runs on its own isolated server ("trap"). Python + asyncssh SSH server on port 22, FastAPI fake web pages on port 80, and a fake shell (rules engine first, LLM fallback) over a virtual filesystem. It NEVER executes attacker input. It sends raw events to core over HTTPS: `POST https://api.<domain>/ingest` with header `Authorization: Bearer $INGEST_TOKEN`.
 - `backend/` runs on the "core" server. FastAPI: `POST /ingest` (writes raw events to Redis stream `raw`), `ws /live`, `GET /sessions`, `GET /sessions/{id}`, `GET /attackers`, `GET /stats`. Stores everything in Tiger Data (Timescale Postgres).
 - `brain/` runs on core. Reads Redis stream `raw`, enriches events (geo, classification, SerpApi reputation, threat, technique mapping, dossiers, stories) and writes them to Redis stream `events`, which backend persists and broadcasts.
-- `world/` is the Next.js frontend, built separately by a teammate on the `world` branch. Don't create or edit anything in `world/`.
+- `world/` is the Next.js frontend (live 3D globe), deployed on Vercel as project `breadcrumbs` with Root Directory `world`. Started by a teammate on the `world` branch; now built on `main` like everything else. Run `npm run lint`, `npm run typecheck`, `npm test` and `npm run build` in `world/` before merging.
 - `infra/` holds Docker Compose files, Caddy config, and firewall scripts.
 - Caddy on core serves `api.<domain>` with automatic HTTPS so the frontend on Vercel can use `wss://`.
 - `contracts/` holds the JSON Schemas every service agrees on, plus the shared pydantic package `hacktx_contracts` (`contracts/py/`).

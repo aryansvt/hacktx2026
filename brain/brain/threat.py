@@ -98,5 +98,6 @@ def level_for_event(event_type: str, line: str = "", downloads: list[str] | None
 
 def apply(stored: str, base: str, reputation: str) -> str:
     """new threat given the stored value, the highest base seen and reputation."""
-    effective = bump(base) if reputation == "malicious" else base
+    # malicious bumps one level, but only running something reaches critical
+    effective = bump(base) if reputation == "malicious" and rank(base) < rank("high") else base
     return max_level(stored or "low", effective)

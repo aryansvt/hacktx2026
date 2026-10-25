@@ -22,13 +22,17 @@ Every command below assumes the venv is active and you're in the repo root.
 
 ## sim_bot.py
 
-A fast, regular bot: 4 failed logins in a burst, then a fixed script of system info commands and a simulated download (`wget` from a `.invalid` host, which the trap only pretends to fetch). Sends the `SSH-2.0-Go` client string like most real bots.
+A fast, regular bot: 4 failed logins in a burst, then a fixed script of system info commands and a simulated download (`wget` from a `.invalid` host, which the trap only pretends to fetch), made executable with `chmod +x`. Sends the `SSH-2.0-Go` client string like most real bots. By default it stops before running the file, so threat tops out at `high` and it shows as a clay golem.
 
 ```
 python scripts/sim/sim_bot.py
-python scripts/sim/sim_bot.py -n 5          # five in parallel
-python scripts/sim/sim_bot.py --attempts 8  # longer login burst
+python scripts/sim/sim_bot.py -n 5             # five in parallel
+python scripts/sim/sim_bot.py --attempts 8     # longer login burst
+python scripts/sim/sim_bot.py --family mirai   # dropped file named after a known botnet
+python scripts/sim/sim_bot.py --run            # also runs the drop, threat goes critical
 ```
+
+With `--family NAME`, the dropped file is called `NAME`. Brain looks the name up on the web, finds the public write-ups, and marks the session `malicious` with that family, so it shows as a stone golem. The name has to be 4 to 32 letters, digits, `-` or `_`, since brain doesn't search shorter names. Lookups are cached for 7 days, so repeat runs don't spend searches.
 
 ## Tests
 

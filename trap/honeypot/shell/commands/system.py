@@ -337,9 +337,14 @@ def which(ctx: Ctx, args: list[str]) -> Result:
 
 @command("exit", "logout")
 def exit_cmd(ctx: Ctx, args: list[str]) -> Result:
-    ctx.state.exit_requested = True
+    st = ctx.state
     code = int(args[0]) if args and args[0].isdigit() else 0
-    return Result(out="logout\n" if ctx.state.tty else "", code=code)
+    if st.user_stack:
+        # leave the shell sudo opened, back to whoever ran it
+        st.user, st.cwd, st.env, login = st.user_stack.pop()
+        return Result(out=("logout\n" if login else "exit\n") if st.tty else "", code=code)
+    st.exit_requested = True
+    return Result(out="logout\n" if st.tty else "", code=code)
 
 
 @command("true", ":")

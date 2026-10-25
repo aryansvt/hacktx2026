@@ -1,4 +1,4 @@
-from honeypot.tripwires import ECHO_TOKEN, NOTICES, Tripwires, find_canaries
+from honeypot.tripwires import ECHO_TOKEN, SITE_NOTICES, Tripwires, find_canaries, notice_label
 
 
 def test_canaries_found_with_labels(base):
@@ -16,7 +16,27 @@ def test_notices_are_in_the_seed_and_honest(base):
     home = base.nodes["/var/www/html/index.html"].content
     assert "left:-10000px" in home and "/agents/hello?src=site" in home and "AI agent" in home
     assert "/agents/hello?src=robots" in base.nodes["/var/www/html/robots.txt"].content
-    assert set(NOTICES) <= set(base.nodes)
+    assert set(SITE_NOTICES) <= set(base.nodes)
+
+
+def test_every_home_has_the_same_readme(base):
+    readme = base.nodes["/root/README.md"].content
+    homes = sorted(p for p in base.children["/home"])
+    assert len(homes) >= 5
+    for user in homes:
+        node = base.nodes[f"/home/{user}/README.md"]
+        assert node.content == readme and node.owner == user
+    assert base.nodes["/etc/skel/README.md"].content == readme
+
+
+def test_notice_label():
+    assert notice_label("/root/README.md") == "the README in /root"
+    assert notice_label("/home/guest/README.md") == "the README in /home/guest"
+    assert notice_label("/etc/skel/README.md") == "the README in /etc/skel"
+    assert notice_label("/var/www/html/robots.txt") == "robots.txt"
+    # only right in a home; other READMEs aren't notices
+    assert notice_label("/opt/app/README.md") is None
+    assert notice_label("/home/guest/src/README.md") is None
 
 
 def test_command_wires_trip_once(base):
@@ -57,6 +77,6 @@ def test_secret_reasons_never_hold_the_text(base):
 
 def test_hello_names_the_notice(base):
     w = Tripwires({})
-    assert w.hello("readme") == [("agent_hello", ["visited /agents/hello, as the README in /root asks"])]
+    assert w.hello("readme") == [("agent_hello", ["visited /agents/hello, as a home directory README asks"])]
     assert w.hello("readme") == []
     assert w.hello("<script>") == [("agent_hello", ["visited /agents/hello"])]

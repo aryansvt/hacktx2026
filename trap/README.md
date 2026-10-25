@@ -39,6 +39,15 @@ Commands that report on the box all read the same facts, so they agree with each
 - `last`: the session's own login (interactive only, exec channels don't write wtmp), then `last` and the boot from `boot_time`.
 - `mount`: `mounts`, which holds every `df` row plus the pseudo filesystems and one overlay per container. Mounting anything fails.
 
+`sudo` (`shell/commands/sudo.py`) takes the login user's own SSH password, and only the guest and team logins have one it accepts. Everyone else gets "Sorry, try again." three times and `sudo: 3 incorrect password attempts`. Root never gets asked.
+
+- Interactive sessions: the engine can't stop mid-line to read input, so when a line would make sudo ask, the SSH server prompts first (`[sudo] password for guest: `, echo off, three tries) and then runs the line. The password goes to `Auth.sudo_ok` and is dropped; it's never a command event and never in history.
+- A right password is cached for 15 minutes. `sudo -k` forgets it.
+- The command then runs as root through the engine and the user goes back afterwards. `sudo -i`, `sudo -s`, `sudo su [-]` and `sudo bash` open a root shell; `exit` returns to the user that ran sudo instead of ending the session.
+- Exec channels have no terminal, so `ssh host sudo id` gets sudo's "a terminal is required" message. `sudo -S` reads the password from stdin there. `sudo -n` never asks.
+- If someone types our guest or team password into a command (`echo pw | sudo -S ...`), command events and history show `********` instead.
+- Also `-u user`, `-l`, `-v`, `-V`, and `command not found` for shell builtins like `sudo cd`. A FAKE-CANARY value tried as the sudo password trips `canary_reuse`.
+
 `wget` and `curl` are text only (`shell/commands/transfer.py`). The URL is parsed and nothing else: no socket, no DNS. Names come from the fake `/etc/hosts`, anything else gets a stable made-up address in the RFC 5737 ranges, and the progress text is built from the host in the argument. Every download is the same 12-byte file with the line `placeholder`, written to the session overlay like wget or curl would (`-O`, `-P`, `-o`, `-O -`, `.1` suffixes, permissions, the overlay caps). `curl` with no output option prints `placeholder` instead of writing a file, like the real one. The file is marked as a simulated download (`fake_size`), so running it, even after `chmod +x`, prints `cannot execute binary file: Exec format error`. Writing to it turns it into a normal file. `tests/test_transfer.py` runs both tools with socket creation and name lookups blocked.
 
 ## LLM fallback
@@ -79,7 +88,7 @@ The rules engine answers what it models. A command that's installed on the fake 
 
 `honeypot/tripwires.py`. The notices are written honestly: they plainly ask automated AI agents to identify themselves and say that doing so only records the visit. No tricks, no fake instructions.
 
-- `/root/README.md` describes the box and has "A note for AI agents" asking them to run `echo qf-agent-hello` or request `/agents/hello?src=readme`.
+- A `README.md` describes the box and has "A note for AI agents" asking them to run `echo qf-agent-hello` or request `/agents/hello?src=readme`. The same file is in `/root`, every seeded home in `/home`, and `/etc/skel`. Homes made at login (guest, team) are filled from `/etc/skel`, like `useradd -m`, so every session finds one in `~`. Any `README.md` directly in `/root`, `/etc/skel` or `/home/<user>` counts as a notice.
 - The homepage has the same request in offscreen text (`left:-10000px`, `aria-hidden`), pointing at `/agents/hello?src=site`. `robots.txt` has a comment pointing at `?src=robots`.
 
 Wires, each tripped once per session for each distinct thing:

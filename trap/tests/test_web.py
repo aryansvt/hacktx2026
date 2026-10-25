@@ -111,7 +111,7 @@ async def test_agents_hello_trips_once_per_source(site):
         await c.post("/agents/hello?src=site")
     assert r.status_code == 200 and "Thanks for identifying yourself" in r.text
     assert [t["reasons"][0] for t in trips(site.sink)] == [
-        "visited /agents/hello, as the README in /root asks",
+        "visited /agents/hello, as a home directory README asks",
         "visited /agents/hello, as the website's homepage asks",
     ]
 

@@ -11,6 +11,7 @@ import time
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 
 DEFAULT_MTIME = "2026-09-14 10:22"
 
@@ -143,8 +144,8 @@ class Overlay:
         self.entries: dict[str, Node | None] = {}
         self.added: dict[str, set[str]] = {}
         self.bytes_used = 0
-        # reads of these real paths get noted in self.reads (tripwire notices)
-        self.watch: frozenset[str] = frozenset()
+        # reads of real paths this says yes to get noted in self.reads (tripwire notices)
+        self.watch: Callable[[str], object] | None = None
         self.reads: list[str] = []
 
     def snapshot(self) -> tuple:
@@ -230,7 +231,7 @@ class Overlay:
             raise FsError("EACCES", path)
         if self.watch:
             real = self.realpath(path)
-            if real in self.watch:
+            if self.watch(real):
                 self.reads.append(real)
         return node.content
 

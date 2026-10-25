@@ -43,6 +43,8 @@ class Session:
     kind: str = "unknown"
     confidence: float = 0.0
     reasons: list = field(default_factory=list)
+    cls_kind: str = "unknown"  # last emitted classification
+    cls_conf: float = 0.0
     reputation: str = "unknown"
     family: str | None = None
     threat: str = "low"

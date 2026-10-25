@@ -91,3 +91,61 @@ class MemoryRepCache:
 
     async def close(self):
         pass
+
+
+# ---- brain wiring for tests ----
+
+from brain.config import Settings  # noqa: E402
+from brain.geo import GeoLocator  # noqa: E402
+
+SETTINGS = Settings(ip_hash_salt="test-salt", consumer="test-1", session_ttl_s=3600,
+                    serpapi_hourly_cap=50, llm_hourly_cap=200)
+
+
+class FakeGeo(GeoLocator):
+    """fixture ips are documentation ranges, so skip the public-ip check."""
+
+    CITIES = {
+        "203.0.113.10": (52.374123, 4.889765, "NL", "Amsterdam"),
+        "198.51.100.20": (48.8566, 2.3522, "FR", "Paris"),
+        "192.0.2.30": (37.7749, -122.4194, "US", "San Francisco"),
+    }
+    ASNS = {
+        "203.0.113.10": (14061, "DIGITALOCEAN-ASN"),
+        "198.51.100.20": (3215, "Orange S.A."),
+        "192.0.2.30": (16509, "AMAZON-02"),
+        "198.51.100.99": (398324, "Censys, Inc."),
+    }
+
+    def __init__(self):
+        super().__init__(FakeCityReader(self.CITIES), FakeAsnReader(self.ASNS), 30.29, -97.74)
+
+    def locate(self, ip, source, ip_hash=None):
+        import brain.geo as m
+        orig, m._public = m._public, (lambda _ip: True)
+        try:
+            return super().locate(ip, source, ip_hash)
+        finally:
+            m._public = orig
+
+    def asn(self, ip):
+        import brain.geo as m
+        orig, m._public = m._public, (lambda _ip: True)
+        try:
+            return super().asn(ip)
+        finally:
+            m._public = orig
+
+
+def load_fixture(name):
+    from pathlib import Path
+    return json.loads((Path(__file__).parent / "fixtures" / f"{name}.json").read_text(encoding="utf-8"))
+
+
+def event_validator():
+    from pathlib import Path
+
+    from jsonschema import Draft202012Validator
+    schema_path = Path(__file__).resolve().parents[2] / "contracts" / "event.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    return Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER)

@@ -96,6 +96,20 @@ docker build -f brain/Dockerfile -t hacktx-brain .
 docker run --env-file .env -v "$PWD/data:/data:ro" hacktx-brain
 ```
 
+## Backfill
+
+`scripts/backfill_classify.py` is a one-time fix for sessions stored before a classifier change, like the quick login-only scan rule. It finds every ended session in Tiger Data that is still `unknown`, rebuilds it from its stored public events and runs the classifier again. For each session that now gets a label, it writes a `classified` event to the Redis stream `events`. The backend stores it, updates the session and broadcasts it on `/live` like any other event.
+
+```bash
+TIGER_DATABASE_URL=... REDIS_URL=... python brain/scripts/backfill_classify.py --dry-run   # only print counts
+TIGER_DATABASE_URL=... REDIS_URL=... python brain/scripts/backfill_classify.py
+```
+
+- Public events have no raw IP or network owner, so the hosting and scanner network signals are missing from the rerun. Everything else the classifier reads is stored.
+- Session timing only uses events the trap saw. Story and dossier events are stamped later and would make a 0.3 second scan look slow.
+- The new event gets the session's latest stored timestamp. That way the backend takes the new label without moving the session's `last_seen`.
+- Event ids are derived from the session id, so running it twice never double counts.
+
 ## Test
 
 ```bash

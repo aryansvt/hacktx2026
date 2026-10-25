@@ -5,6 +5,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TRAP_SSH_PORT=22 \
+    TRAP_HTTP_PORT=80 \
     TRAP_STATE_DIR=/state
 
 WORKDIR /app
@@ -17,7 +18,7 @@ RUN pip install --no-cache-dir /app/contracts/py /app/trap \
     && useradd --system --uid 10001 --no-create-home trap \
     && mkdir /state && chown trap:trap /state
 
-# port 22 as non-root works because docker sets net.ipv4.ip_unprivileged_port_start=0
+# ports 22 and 80 as non-root work because docker sets net.ipv4.ip_unprivileged_port_start=0
 # in the container's network namespace (set explicitly in docker-compose.yml too).
 # no setcap: it breaks exec under cap_drop ALL and is ignored with no-new-privileges.
 USER trap
@@ -26,5 +27,5 @@ USER trap
 # unsent events survive restarts
 VOLUME ["/state"]
 
-EXPOSE 22
+EXPOSE 22 80
 CMD ["python", "-m", "honeypot"]

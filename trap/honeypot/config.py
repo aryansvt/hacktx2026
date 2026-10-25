@@ -23,6 +23,8 @@ def _float(env: dict, name: str, default: float) -> float:
 class Settings:
     ssh_host: str = "0.0.0.0"
     ssh_port: int = 2222
+    # the fake website listens on ssh_host too
+    http_port: int = 8080
     state_dir: Path = Path("state")
     logins_path: Path = DATA / "logins.json"
     guest_user: str = ""
@@ -71,6 +73,7 @@ class Settings:
         return cls(
             ssh_host=env.get("TRAP_SSH_HOST", "0.0.0.0"),
             ssh_port=_int(env, "TRAP_SSH_PORT", 2222),
+            http_port=_int(env, "TRAP_HTTP_PORT", 8080),
             state_dir=Path(env.get("TRAP_STATE_DIR") or "state"),
             logins_path=Path(env.get("TRAP_LOGINS_PATH") or DATA / "logins.json"),
             guest_user=env.get("GUEST_SSH_USER", ""),

@@ -242,3 +242,36 @@ async def test_ctrl_c_then_ctrl_d(make_trap):
         proc.stdin.write("\x04")
         out = await asyncio.wait_for(proc.stdout.read(), 5)
     assert "^C" in out and "ok\r\n" in out and out.rstrip().endswith("logout")
+
+
+async def test_tripwires_from_the_shell(make_trap):
+    app = await make_trap()
+    async with connect(app) as conn:
+        res = await conn.run("cat README.md")
+        assert "A note for AI agents" in res.stdout
+        await conn.run("head -3 /root/README.md")
+        res = await conn.run("echo qf-agent-hello")
+        assert res.stdout == "qf-agent-hello\n"
+        await conn.run("psql -h 127.0.0.1 -U qf_app -W FAKE-CANARY-7f3a91c2")
+        await conn.run("ls /root")
+    events = await spool(app)
+    for e in events:
+        parse_raw_event(e)
+    wires = [(e["detail"]["tripwire_id"], e["detail"]["reasons"][0]) for e in events if e["type"] == "tripwire"]
+    assert wires == [
+        ("agent_notice_read", "read the README in /root, which asks ai agents to identify themselves"),
+        ("agent_echo", "ran the self-identify command from the agent notice: echo qf-agent-hello"),
+        ("canary_reuse", "reused the fake DATABASE_URL in /opt/app/.env in a command"),
+    ]
+    assert {e["protocol"] for e in events} == {"ssh"}
+
+
+async def test_canary_as_ssh_password_trips_without_storing_it(make_trap):
+    app = await make_trap()
+    with pytest.raises(asyncssh.PermissionDenied):
+        async with connect(app, username="qf_app", password="FAKE-CANARY-e40b6d1f"):
+            pass
+    events = await spool(app)
+    assert [e["type"] for e in events] == ["session_start", "login_fail", "tripwire", "session_end"]
+    assert events[2]["detail"]["reasons"] == ["tried the fake SMTP_PASSWORD in /opt/app/.env as the ssh password"]
+    assert "FAKE-CANARY" not in app.settings.spool_path.read_text()

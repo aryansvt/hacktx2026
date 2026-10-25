@@ -19,7 +19,8 @@ from .auth import Auth
 from .config import Settings
 from .events import SessionEvents, Sink
 from .llm.fallback import LLMFallback, LLMSession
-from .shell.engine import Engine, ShellState
+from .shell.engine import Engine, ShellState, load_base
+from .tripwires import NOTICES, Trip, Tripwires, find_canaries
 from .vfs import Overlay
 
 log = logging.getLogger("honeypot.ssh")
@@ -76,6 +77,7 @@ class TrapServer(asyncssh.SSHServer):
         self.sessions = 0
         self.fs: Overlay | None = None
         self.llm: LLMSession | None = None
+        self.wires = Tripwires(app.canaries)
         self._hard: asyncio.TimerHandle | None = None
 
     def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
@@ -112,16 +114,26 @@ class TrapServer(asyncssh.SSHServer):
 
     def validate_password(self, username: str, password: str) -> bool:
         source = self.app.auth.check(username, password)
+        # only the canary label survives, never the password
+        trips = self.wires.secret(password, "ssh password") + self.wires.secret(username, "ssh username")
         del password
         if self.events is None:
             return False
         if source is None:
             self.events.login_fail(username)
+            self.trip(trips)
             return False
         self.user = username
         self.events.resolve(self.app.auth.source_for(self.events.src_ip, source))
         self.events.login_success(username)
+        self.trip(trips)
         return True
+
+    def trip(self, trips: list[Trip]) -> None:
+        if self.events is None:
+            return
+        for wire, reasons in trips:
+            self.events.tripwire(wire, reasons)
 
     # every forwarding request is refused
     def connection_requested(self, dest_host, dest_port, orig_host, orig_port):
@@ -145,6 +157,7 @@ class TrapApp:
         self.sink = sink
         self.engine = engine or Engine()
         self.fallback = fallback
+        self.canaries = find_canaries(load_base())
         self.active = 0
 
     async def start(self, host_keys: list[asyncssh.SSHKey] | None = None) -> asyncssh.SSHAcceptor:
@@ -180,6 +193,7 @@ class TrapApp:
             # channels on one connection share a filesystem, like one real box
             if server.fs is None:
                 server.fs = state.fs
+                server.fs.watch = frozenset(NOTICES)
             else:
                 state.fs = server.fs
             if self.fallback and server.llm is None:
@@ -213,6 +227,7 @@ class TrapApp:
         ms = int((time.perf_counter() - t0) * 1000)
         if server.events:
             server.events.command(line, out, ms, answered_by)
+        server.trip(server.wires.command(line) + server.wires.reads(state.fs.drain_reads()))
         if out:
             process.stdout.write(out)
         return code & 0xFF

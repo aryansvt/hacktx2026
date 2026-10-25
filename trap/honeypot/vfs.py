@@ -143,6 +143,9 @@ class Overlay:
         self.entries: dict[str, Node | None] = {}
         self.added: dict[str, set[str]] = {}
         self.bytes_used = 0
+        # reads of these real paths get noted in self.reads (tripwire notices)
+        self.watch: frozenset[str] = frozenset()
+        self.reads: list[str] = []
 
     def snapshot(self) -> tuple:
         """cheap copy of the overlay. nodes are frozen, so sharing them is fine."""
@@ -225,7 +228,15 @@ class Overlay:
             raise FsError("EISDIR", path)
         if not self.allowed(node, user, 0o4):
             raise FsError("EACCES", path)
+        if self.watch:
+            real = self.realpath(path)
+            if real in self.watch:
+                self.reads.append(real)
         return node.content
+
+    def drain_reads(self) -> list[str]:
+        reads, self.reads = self.reads, []
+        return reads
 
     def listdir(self, path: str, user: str = "root") -> list[str]:
         node = self.stat(path, user)

@@ -2,7 +2,7 @@
 
 The honeypot. Runs on its own isolated server. asyncssh SSH server on port 22, FastAPI fake web pages on port 80, and a fake shell (rules engine first, LLM fallback) over a virtual filesystem. It never executes attacker input. It sends raw events to `POST https://api.<domain>/ingest`, shaped like `contracts/raw_event.schema.json`.
 
-Right now the SSH server, the rules engine, the LLM fallback and the sender are done. Events go to a local spool file and the sender ships them to core. The fake web pages come later.
+The SSH server, the rules engine, the LLM fallback, the fake website, the AI agent tripwires and the sender are all done. SSH and HTTP events go to one local spool file and the sender ships them to core.
 
 ## Run it locally
 
@@ -16,7 +16,7 @@ pip install -e ../contracts/py -e ".[dev]"
 python -m honeypot
 ```
 
-It listens on port 2222. Log in with any pair from `honeypot/data/logins.json`:
+SSH listens on port 2222 and the website on http://localhost:8080. Log in with any pair from `honeypot/data/logins.json`:
 
 ```sh
 ssh -p 2222 -o UserKnownHostsFile=/dev/null root@localhost   # password: root
@@ -44,6 +44,36 @@ The rules engine answers what it models. A command that's installed on the fake 
 - `python scripts/llm_misses.py trap/state/llm.jsonl` lists the commands that go to the LLM most often. Those are the next rules to write.
 - `honeypot/llm/anthropic_client.py` is the only module besides `sender.py` allowed outbound HTTP (`tests/test_safety.py`). Its base URL is pinned to `https://api.anthropic.com`, it ignores `ANTHROPIC_BASE_URL` and proxy env vars, never follows redirects, retries nothing and refuses any request for another host.
 
+## Fake website
+
+`honeypot/web.py` is a FastAPI app served by uvicorn inside the same process and event loop as the SSH server, on `TRAP_HTTP_PORT` (8080 locally, 80 in the container). It plays the same box: the nginx in front of the Quillfern shop.
+
+- `/` and `/index.html`, `/robots.txt` and `/static/site.css` come straight from `/var/www/html` in the fake fs, so `cat /var/www/html/index.html` over SSH and `GET /` show the same page.
+- `/admin` is a staff sign in page. Every POST says "Invalid username or password." Only the username goes into a `login_fail` event. The password is checked against the canaries and then dropped.
+- `/agents/hello` is the tripwire page (see below).
+- Anything else gets nginx's 404 page. Headers say `Server: nginx/1.18.0 (Ubuntu)`, in nginx's order and casing, and uvicorn's own `server` and `date` headers are off.
+- Bodies over 16 KiB get a 413. `X-Forwarded-For` is ignored, there's nothing in front of it.
+- Requests from one ip are one `http` session until that ip goes quiet for 10 minutes. The session starts with the user agent as `client`, each request is a `command` event (`GET /admin` in, `200 OK` out), and `session_end` carries the duration and the request count. A sweeper ends quiet sessions every 30 s, and shutdown ends the rest. `TEAM_IPS` count as `team`, everything else is `wild`.
+- If uvicorn can't bind its port it logs an error and SSH keeps running.
+
+## AI agent tripwires
+
+`honeypot/tripwires.py`. The notices are written honestly: they plainly ask automated AI agents to identify themselves and say that doing so only records the visit. No tricks, no fake instructions.
+
+- `/root/README.md` describes the box and has "A note for AI agents" asking them to run `echo qf-agent-hello` or request `/agents/hello?src=readme`.
+- The homepage has the same request in offscreen text (`left:-10000px`, `aria-hidden`), pointing at `/agents/hello?src=site`. `robots.txt` has a comment pointing at `?src=robots`.
+
+Wires, each tripped once per session for each distinct thing:
+
+| `tripwire_id` | trips when |
+| --- | --- |
+| `agent_notice_read` | the shell reads one of the notice files (`cat`, `head`, `grep`, an LLM-routed command that names it, ...) |
+| `agent_echo` | a command runs `echo qf-agent-hello` |
+| `agent_hello` | `/agents/hello` gets a request (the reason names the notice from `?src=`), or a shell command mentions it |
+| `canary_reuse` | a `FAKE-CANARY` value from the seed shows up in a command, a URL, or as an SSH or `/admin` username or password |
+
+Reasons name a canary by where it lives (`the fake DATABASE_URL in /opt/app/.env`), never by what was sent, so a password never ends up in an event. Reading the homepage over HTTP can't be told apart from any other visit, so on the web only acting on the notice counts. Reads are seen by the overlay: `Overlay.watch` holds the notice paths and `Overlay.reads` collects hits, which the SSH server checks after each command.
+
 ## Sender
 
 `honeypot/sender.py` runs as a background task inside `python -m honeypot`. It reads the spool and posts up to 100 events at a time as a JSON array to `CORE_URL/ingest` with `Authorization: Bearer $INGEST_TOKEN`.
@@ -61,11 +91,11 @@ The rules engine answers what it models. A command that's installed on the fake 
 # from the repo root
 docker build -f trap/Dockerfile -t hacktx-trap .
 
-# local dev: trap on localhost:2222, sending to a backend on the host at :8000
+# local dev: ssh on localhost:2222, web on localhost:8080, sending to a backend on the host at :8000
 docker compose -f trap/docker-compose.yml up --build
 ```
 
-The image runs as a non-root user (uid 10001) and binds port 22 itself. That works because Docker sets `net.ipv4.ip_unprivileged_port_start=0` inside the container; compose sets it explicitly too. `/state` is a volume, so host keys, the spool and the cursor survive restarts. The compose file also drops every capability, sets `no-new-privileges`, and makes the root filesystem read-only.
+The image runs as a non-root user (uid 10001) and binds ports 22 and 80 itself. That works because Docker sets `net.ipv4.ip_unprivileged_port_start=0` inside the container; compose sets it explicitly too. `/state` is a volume, so host keys, the spool and the cursor survive restarts. The compose file also drops every capability, sets `no-new-privileges`, and makes the root filesystem read-only.
 
 ## Tests
 
@@ -74,7 +104,7 @@ cd trap
 python -m pytest
 ```
 
-`tests/test_ssh.py` starts the real server on a random localhost port and logs in with an asyncssh client. `tests/test_safety.py` scans `honeypot/` and fails on anything that could run or connect on the host (subprocess, os.system, eval, exec, socket and friends). The LLM tests use a scripted fake provider (`tests/llm_fakes.py`), and `tests/test_anthropic_client.py` runs the real SDK client against a mock transport, so no test touches the network.
+`tests/test_ssh.py` starts the real server on a random localhost port and logs in with an asyncssh client. `tests/test_safety.py` scans `honeypot/` and fails on anything that could run or connect on the host (subprocess, os.system, eval, exec, socket and friends). The LLM tests use a scripted fake provider (`tests/llm_fakes.py`), and `tests/test_anthropic_client.py` runs the real SDK client against a mock transport, so no test touches the network. `tests/test_web.py` drives the site through httpx's ASGI transport, plus one real uvicorn run on 127.0.0.1 to check the headers on the wire.
 
 ## Config
 
@@ -84,6 +114,7 @@ All from env vars. See `.env.example` at the repo root.
 | --- | --- | --- |
 | `TRAP_SSH_HOST` | `0.0.0.0` | listen address |
 | `TRAP_SSH_PORT` | `2222` | listen port (22 in production) |
+| `TRAP_HTTP_PORT` | `8080` | fake website port (80 in production), on the same address |
 | `TRAP_STATE_DIR` | `state` | host keys, spool, cursor, dead letter file |
 | `TRAP_LOGINS_PATH` | `honeypot/data/logins.json` | allowed default logins |
 | `GUEST_SSH_USER`, `GUEST_SSH_PASSWORD` | unset | demo login, marks the session `guest` |
@@ -118,6 +149,8 @@ honeypot/
   events.py        raw events via hacktx_contracts, jsonl spool
   sender.py        spool -> POST /ingest, cursor, backoff, dead letter
   ssh_server.py    asyncssh server, limits, refusals
+  web.py           fake website, http sessions
+  tripwires.py     ai agent notices and canary reuse
   main.py          python -m honeypot
   vfs.py           read-only base fs + copy-on-write overlay per session
   shell/           parser, rules engine, commands

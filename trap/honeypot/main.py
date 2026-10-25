@@ -13,6 +13,7 @@ from .llm.provider import make_provider
 from .sender import Sender
 from .shell.engine import load_system
 from .ssh_server import TrapApp
+from .web import WebServer
 
 log = logging.getLogger("honeypot")
 
@@ -22,9 +23,14 @@ async def serve(settings: Settings) -> None:
     sender = Sender(settings)
     provider = make_provider(settings)
     fallback = LLMFallback(provider, load_system(), settings.llm_hourly_cap, settings.llm_log_path) if provider else None
-    app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path), fallback=fallback)
+    # ssh and http share one spool, so one sender ships both
+    sink = JsonlSink(settings.spool_path)
+    app = TrapApp(settings, Auth.load(settings), sink, fallback=fallback)
     server = await app.start()
     log.info("ssh trap listening on %s:%s, spool %s", settings.ssh_host, settings.ssh_port, settings.spool_path)
+    web = WebServer(settings, sink, app.auth.team_ips, app.canaries)
+    if await web.start():
+        log.info("http trap listening on %s:%s", settings.ssh_host, web.port)
     task = asyncio.create_task(sender.run()) if sender.enabled else None
     if task:
         log.info("sending events to %s/ingest", settings.core_url)
@@ -34,6 +40,7 @@ async def serve(settings: Settings) -> None:
         await server.wait_closed()
     finally:
         server.close()
+        await web.close()
         if task:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)

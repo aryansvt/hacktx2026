@@ -2,7 +2,7 @@
 
 events wait in a per-session buffer until the session's source is known
 (a guest login turns earlier login_fail events into guest events), then go
-to a sink. the jsonl spool is the only sink for now; the https sender comes later.
+to a sink: the jsonl spool, which the sender ships to core. ssh and http both use it.
 """
 
 from __future__ import annotations
@@ -25,6 +25,8 @@ from hacktx_contracts.raw_event import (
     SessionEndRawEvent,
     SessionStartDetail,
     SessionStartRawEvent,
+    TripwireDetail,
+    TripwireRawEvent,
 )
 
 MAX_OUTPUT = 500
@@ -105,6 +107,9 @@ class SessionEvents:
             answered_by=answered_by,
         )
         self._add(CommandRawEvent, "command", detail)
+
+    def tripwire(self, tripwire_id: str, reasons: list[str]) -> None:
+        self._add(TripwireRawEvent, "tripwire", TripwireDetail(tripwire_id=tripwire_id, reasons=[r[:200] for r in reasons]))
 
     def session_end(self, duration_s: float, command_count: int) -> None:
         self._add(SessionEndRawEvent, "session_end", SessionEndDetail(duration_s=max(0.0, duration_s), command_count=command_count))

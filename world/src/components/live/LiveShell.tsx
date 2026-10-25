@@ -19,6 +19,8 @@ import Oracle from "@/components/oracle/Oracle";
 import WebIntel from "@/components/oracle/WebIntel";
 import Bestiary from "@/components/bestiary/Bestiary";
 import Undercroft from "@/components/castle/Undercroft";
+import TitleCard from "@/components/intro/TitleCard";
+import SoundToggle from "@/components/sound/SoundToggle";
 const World = dynamic(() => import("./World"), {
   ssr: false,
   loading: () => null,
@@ -144,7 +146,9 @@ export default function LiveShell() {
       <CreaturePage adapter={adapter} />
       {!kiosk && <WebIntel />}
       {!kiosk && <Bestiary />}
+      {!kiosk && <SoundToggle />}
       <Oracle />
+      <TitleCard disabled={kiosk} />
       {!kiosk && (
         <Timeline castleOpen={castle} onCastle={() => setCastle((v) => !v)} />
       )}

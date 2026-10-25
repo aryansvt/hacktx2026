@@ -62,3 +62,21 @@ test("raw log never shows ip_hash or coordinates", () => {
   assert.ok(!raw.includes('"lat"'));
   assert.ok(raw.includes('"ip_hash":"hidden"'));
 });
+
+test("chimes only for notable events", async () => {
+  const { chimeFor } = await import("../src/components/sound/chime");
+  assert.equal(
+    chimeFor(fixtureEvent(0, "s", "login_fail", { username: "x" }, 1)),
+    null,
+  );
+  assert.ok(
+    chimeFor(
+      fixtureEvent(1, "s", "tripwire", { tripwire_id: "t", reasons: [] }, 2),
+    ),
+  );
+  const guest = {
+    ...fixtureEvent(2, "g", "session_start", {}, 3),
+    source: "guest" as const,
+  };
+  assert.ok(chimeFor(guest));
+});

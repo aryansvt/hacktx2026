@@ -1,0 +1,23 @@
+/* sits left of the bestiary book in the top bar's right corner */
+.toggle {
+  position: fixed;
+  top: 32px;
+  right: 86px;
+  z-index: 31;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  border-radius: var(--radius);
+  transition: transform 0.15s ease-out;
+}
+.toggle:active {
+  transform: scale(0.96);
+}
+.toggle[aria-pressed="true"] {
+  color: var(--blue);
+  border-color: var(--gold);
+}

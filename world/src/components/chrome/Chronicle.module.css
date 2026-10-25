@@ -64,8 +64,8 @@
 }
 .more {
   position: absolute;
-  right: 18px;
-  bottom: 9px;
+  right: 34px;
+  bottom: 10px;
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -81,7 +81,7 @@
   z-index: 20;
   left: 20px;
   top: 100px;
-  bottom: 80px;
+  bottom: 100px;
   width: min(480px, calc(100vw - 40px));
   display: flex;
   flex-direction: column;
@@ -180,7 +180,8 @@
   white-space: nowrap;
 }
 .flag {
-  font-size: 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
   line-height: 1;
 }
 .meta time {

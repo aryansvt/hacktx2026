@@ -71,7 +71,7 @@
 .counter {
   position: relative;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding: 6px 18px;
   border-radius: var(--radius);
@@ -97,7 +97,9 @@
 }
 .counter dd {
   margin: 0;
+  display: flex;
   font-size: 18px;
+  line-height: 1;
   font-weight: 400;
   color: var(--blue);
 }

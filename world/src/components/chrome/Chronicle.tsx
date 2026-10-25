@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X, BookOpen } from "lucide-react";
 import { useDomain } from "@/lib/store";
@@ -25,14 +25,22 @@ interface Row {
   source: Source;
 }
 
-function useNow(ms = 15000) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(t);
-  }, [ms]);
-  return now;
-}
+// shared clock for relative times; 0 on the server so nothing is time-dependent there
+let clock = 0;
+const subscribe = (fn: () => void) => {
+  clock = Date.now();
+  const t = setInterval(() => {
+    clock = Date.now();
+    fn();
+  }, 15000);
+  return () => clearInterval(t);
+};
+const useNow = () =>
+  useSyncExternalStore(
+    subscribe,
+    () => clock,
+    () => 0,
+  );
 
 function useRows(limit: number): Row[] {
   const recent = useDomain((s) => s.data.recent);
@@ -131,8 +139,8 @@ function Meta({ row, now }: { row: Row; now: number }) {
         </span>
       )}
       <span>{row.place}</span>
-      <span aria-hidden>·</span>
-      <time dateTime={row.time}>{ago(row.time, now)}</time>
+      {now > 0 && <span aria-hidden>·</span>}
+      {now > 0 && <time dateTime={row.time}>{ago(row.time, now)}</time>}
       {tag && <span className={styles.tag}>{tag}</span>}
     </span>
   );

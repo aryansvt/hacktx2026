@@ -10,6 +10,7 @@
 /* two parchment covers that swing open like a book */
 .cover {
   position: absolute;
+  z-index: 1;
   top: 0;
   bottom: 0;
   width: 50%;
@@ -38,6 +39,15 @@
 }
 .text {
   position: relative;
+  z-index: 2;
+  transform: translateZ(1px);
+  /* a parchment plate so the spine runs behind the words */
+  padding: 34px 44px 28px;
+  background: radial-gradient(
+    ellipse at center,
+    var(--bg) 55%,
+    rgba(239, 227, 200, 0) 75%
+  );
   max-width: min(760px, calc(100vw - 48px));
   text-align: center;
   color: var(--ink);

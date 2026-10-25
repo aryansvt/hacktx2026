@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hacktx-trap"
+version = "0.1.0"
+description = "listen-only ssh honeypot with an emulated shell"
+requires-python = ">=3.11"
+dependencies = [
+  "asyncssh>=2.17,<3",
+  # regex supports match timeouts, so attacker patterns cannot stall the loop
+  "regex>=2024.5",
+  # only used by sender.py, and only to reach CORE_URL
+  "httpx>=0.27,<1",
+  # install the shared models first: pip install -e ../contracts/py
+  "hacktx-contracts",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[tool.setuptools]
+packages = ["honeypot", "honeypot.shell", "honeypot.shell.commands"]
+
+[tool.setuptools.package-data]
+honeypot = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

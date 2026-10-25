@@ -1,0 +1,31 @@
+{
+  "_comment": "default credential pairs the trap lets in so we can watch what scanners do after login. everything else is rejected.",
+  "allow": [
+    ["root", "root"],
+    ["root", "123456"],
+    ["root", "password"],
+    ["root", "toor"],
+    ["root", "admin"],
+    ["root", "12345678"],
+    ["root", "1234"],
+    ["root", "12345"],
+    ["root", "qwerty"],
+    ["root", "root123"],
+    ["root", "P@ssw0rd"],
+    ["admin", "admin"],
+    ["admin", "password"],
+    ["admin", "123456"],
+    ["admin", "admin123"],
+    ["ubuntu", "ubuntu"],
+    ["pi", "raspberry"],
+    ["user", "user"],
+    ["user", "password"],
+    ["test", "test"],
+    ["test", "123456"],
+    ["oracle", "oracle"],
+    ["postgres", "postgres"],
+    ["git", "git"],
+    ["support", "support"],
+    ["deploy", "deploy"]
+  ]
+}

@@ -39,6 +39,8 @@ Commands that report on the box all read the same facts, so they agree with each
 - `last`: the session's own login (interactive only, exec channels don't write wtmp), then `last` and the boot from `boot_time`.
 - `mount`: `mounts`, which holds every `df` row plus the pseudo filesystems and one overlay per container. Mounting anything fails.
 
+`wget` and `curl` are text only (`shell/commands/transfer.py`). The URL is parsed and nothing else: no socket, no DNS. Names come from the fake `/etc/hosts`, anything else gets a stable made-up address in the RFC 5737 ranges, and the progress text is built from the host in the argument. Every download is the same 12-byte file with the line `placeholder`, written to the session overlay like wget or curl would (`-O`, `-P`, `-o`, `-O -`, `.1` suffixes, permissions, the overlay caps). `curl` with no output option prints `placeholder` instead of writing a file, like the real one. The file is marked as a simulated download (`fake_size`), so running it, even after `chmod +x`, prints `cannot execute binary file: Exec format error`. Writing to it turns it into a normal file. `tests/test_transfer.py` runs both tools with socket creation and name lookups blocked.
+
 ## LLM fallback
 
 The rules engine answers what it models. A command that's installed on the fake box (it's on `PATH` in the virtual fs) but has no rule goes to the LLM instead. A command that isn't installed still gets `command not found`, so the fs stays the source of truth.

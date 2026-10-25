@@ -214,7 +214,7 @@ class _Expander:
 class Engine:
     def __init__(self) -> None:
         # import for the registration side effects
-        from .commands import files, net, pkg, system, text  # noqa: F401
+        from .commands import files, net, pkg, system, text, transfer  # noqa: F401
 
     def new_state(self, user: str = "root", tty: bool = True, base: BaseFS | None = None, **kw) -> ShellState:
         fs = Overlay(base or load_base())
@@ -359,7 +359,8 @@ class Engine:
                 return self.dispatch(state, [base] + argv[1:], stdin, depth)
             if state.unknown:
                 return state.unknown(state, [base] + argv[1:], stdin)
-        if node.content.startswith(ELF_MAGIC) or not node.content.strip():
+        # simulated downloads (fake_size set) never run, whatever text they hold
+        if node.content.startswith(ELF_MAGIC) or not node.content.strip() or node.fake_size is not None:
             return Result(err=f"-bash: {name}: cannot execute binary file: Exec format error\n", code=126)
         return run_script(self, state, node.content, depth)
 

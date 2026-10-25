@@ -92,12 +92,12 @@ async def test_not_installed_stays_command_not_found(setup):
 
 async def test_fs_changes_land_in_the_overlay(setup):
     llm, fb, shell = setup(answer(
-        "Saving to: 'index.html'",
+        "Cloning into 'site'...",
         ("mkdir", "/root/site", ""),
         ("write", "/root/site/index.html", "<h1>hi</h1>\n"),
     ))
     sh = shell()
-    await sh("wget -P site http://example.test/")
+    await sh("git clone /srv/site.git site")
     assert (await sh("cat /root/site/index.html")).out == "<h1>hi</h1>\n"
     assert "site" in (await sh("ls")).out
 

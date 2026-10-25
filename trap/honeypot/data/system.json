@@ -1,0 +1,877 @@
+{
+ "hostname": "qf-web-01",
+ "company": "Quillfern Tile & Stone",
+ "boot_time": "2026-10-06T04:12:37Z",
+ "kernel": "5.15.0-105-generic",
+ "kernel_build": "#115-Ubuntu SMP Mon Apr 15 09:52:04 UTC 2024",
+ "ip": "10.0.4.17",
+ "gateway": "10.0.4.1",
+ "mac": "02:4f:9c:1a:7e:33",
+ "ip6_link": "fe80::4f:9cff:fe1a:7e33",
+ "docker_ip": "172.17.0.1",
+ "cpus": 2,
+ "cpu_model": "Intel Xeon Processor (Skylake, IBRS)",
+ "mem_mb": {
+  "total": 3921,
+  "used": 1342,
+  "free": 403,
+  "shared": 3,
+  "buff_cache": 2175,
+  "available": 2325
+ },
+ "disks": [
+  [
+   "/dev/vda1",
+   "ext4",
+   79980,
+   18342,
+   61622,
+   "/"
+  ],
+  [
+   "tmpfs",
+   "tmpfs",
+   1961,
+   0,
+   1961,
+   "/dev/shm"
+  ],
+  [
+   "tmpfs",
+   "tmpfs",
+   393,
+   2,
+   391,
+   "/run"
+  ],
+  [
+   "/dev/vda15",
+   "vfat",
+   105,
+   6,
+   99,
+   "/boot/efi"
+  ]
+ ],
+ "processes": [
+  [
+   "root",
+   1,
+   0.0,
+   0.3,
+   167744,
+   13120,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:41",
+   "/sbin/init"
+  ],
+  [
+   "root",
+   2,
+   0.0,
+   0.0,
+   0,
+   0,
+   "?",
+   "S",
+   "Oct06",
+   "0:00",
+   "[kthreadd]"
+  ],
+  [
+   "root",
+   3,
+   0.0,
+   0.0,
+   0,
+   0,
+   "?",
+   "I<",
+   "Oct06",
+   "0:00",
+   "[rcu_gp]"
+  ],
+  [
+   "root",
+   12,
+   0.0,
+   0.0,
+   0,
+   0,
+   "?",
+   "S",
+   "Oct06",
+   "0:11",
+   "[ksoftirqd/0]"
+  ],
+  [
+   "root",
+   14,
+   0.0,
+   0.0,
+   0,
+   0,
+   "?",
+   "I",
+   "Oct06",
+   "1:02",
+   "[rcu_sched]"
+  ],
+  [
+   "root",
+   302,
+   0.0,
+   0.4,
+   64412,
+   17840,
+   "?",
+   "S<s",
+   "Oct06",
+   "0:19",
+   "/lib/systemd/systemd-journald"
+  ],
+  [
+   "root",
+   341,
+   0.0,
+   0.1,
+   25012,
+   6232,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:01",
+   "/lib/systemd/systemd-udevd"
+  ],
+  [
+   "systemd+",
+   512,
+   0.0,
+   0.2,
+   16120,
+   8000,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:04",
+   "/lib/systemd/systemd-networkd"
+  ],
+  [
+   "systemd+",
+   514,
+   0.0,
+   0.3,
+   25528,
+   12740,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:07",
+   "/lib/systemd/systemd-resolved"
+  ],
+  [
+   "root",
+   601,
+   0.0,
+   0.0,
+   6896,
+   2960,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:02",
+   "/usr/sbin/cron -f -P"
+  ],
+  [
+   "message+",
+   602,
+   0.0,
+   0.1,
+   8768,
+   4920,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:01",
+   "@dbus-daemon --system --address=systemd: --nofork --nopidfile --systemd-activation --syslog-only"
+  ],
+  [
+   "syslog",
+   610,
+   0.0,
+   0.1,
+   222404,
+   5880,
+   "?",
+   "Ssl",
+   "Oct06",
+   "0:03",
+   "/usr/sbin/rsyslogd -n -iNONE"
+  ],
+  [
+   "root",
+   615,
+   0.0,
+   0.1,
+   15336,
+   7360,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:01",
+   "/lib/systemd/systemd-logind"
+  ],
+  [
+   "root",
+   812,
+   0.0,
+   0.2,
+   15436,
+   9080,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:12",
+   "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"
+  ],
+  [
+   "root",
+   905,
+   0.1,
+   1.2,
+   1801136,
+   49232,
+   "?",
+   "Ssl",
+   "Oct06",
+   "14:22",
+   "/usr/bin/containerd"
+  ],
+  [
+   "root",
+   911,
+   0.2,
+   2.1,
+   2335472,
+   86120,
+   "?",
+   "Ssl",
+   "Oct06",
+   "22:08",
+   "/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock"
+  ],
+  [
+   "root",
+   1034,
+   0.0,
+   0.0,
+   55216,
+   1640,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:00",
+   "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+  ],
+  [
+   "www-data",
+   1037,
+   0.0,
+   0.1,
+   55888,
+   5460,
+   "?",
+   "S",
+   "Oct06",
+   "0:31",
+   "nginx: worker process"
+  ],
+  [
+   "www-data",
+   1038,
+   0.0,
+   0.1,
+   55888,
+   5412,
+   "?",
+   "S",
+   "Oct06",
+   "0:29",
+   "nginx: worker process"
+  ],
+  [
+   "root",
+   1201,
+   0.0,
+   0.3,
+   1238440,
+   12960,
+   "?",
+   "Sl",
+   "Oct06",
+   "0:48",
+   "/usr/bin/containerd-shim-runc-v2 -namespace moby -id 9a0e44c1d2b3 -address /run/containerd/containerd.sock"
+  ],
+  [
+   "70",
+   1224,
+   0.0,
+   0.7,
+   213640,
+   29400,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:52",
+   "postgres"
+  ],
+  [
+   "70",
+   1310,
+   0.0,
+   0.2,
+   213780,
+   9120,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:03",
+   "postgres: checkpointer"
+  ],
+  [
+   "70",
+   1311,
+   0.0,
+   0.1,
+   213640,
+   6080,
+   "?",
+   "Ss",
+   "Oct06",
+   "0:04",
+   "postgres: background writer"
+  ],
+  [
+   "root",
+   1260,
+   0.0,
+   0.3,
+   1238440,
+   12800,
+   "?",
+   "Sl",
+   "Oct06",
+   "0:45",
+   "/usr/bin/containerd-shim-runc-v2 -namespace moby -id 6d2f81aa0c57 -address /run/containerd/containerd.sock"
+  ],
+  [
+   "999",
+   1282,
+   0.1,
+   0.2,
+   59832,
+   10340,
+   "?",
+   "Ssl",
+   "Oct06",
+   "9:17",
+   "redis-server *:6379"
+  ],
+  [
+   "root",
+   48650,
+   0.0,
+   0.3,
+   1238696,
+   13020,
+   "?",
+   "Sl",
+   "Oct24",
+   "0:02",
+   "/usr/bin/containerd-shim-runc-v2 -namespace moby -id 3f1c9a2b7e44 -address /run/containerd/containerd.sock"
+  ],
+  [
+   "1000",
+   48672,
+   0.4,
+   2.6,
+   128440,
+   104820,
+   "?",
+   "Ss",
+   "Oct24",
+   "0:41",
+   "/usr/local/bin/python /usr/local/bin/gunicorn -w 3 -b 0.0.0.0:8000 qf_shop.app:app"
+  ],
+  [
+   "1000",
+   48701,
+   0.2,
+   2.9,
+   141220,
+   116300,
+   "?",
+   "S",
+   "Oct24",
+   "0:22",
+   "/usr/local/bin/python /usr/local/bin/gunicorn -w 3 -b 0.0.0.0:8000 qf_shop.app:app"
+  ],
+  [
+   "1000",
+   48702,
+   0.2,
+   2.8,
+   140980,
+   113880,
+   "?",
+   "S",
+   "Oct24",
+   "0:21",
+   "/usr/local/bin/python /usr/local/bin/gunicorn -w 3 -b 0.0.0.0:8000 qf_shop.app:app"
+  ],
+  [
+   "root",
+   1402,
+   0.0,
+   0.0,
+   6176,
+   1080,
+   "tty1",
+   "Ss+",
+   "Oct06",
+   "0:00",
+   "/sbin/agetty -o -p -- \\u --noclear tty1 linux"
+  ]
+ ],
+ "services": {
+  "ssh": {
+   "desc": "OpenBSD Secure Shell server",
+   "unit": "/lib/systemd/system/ssh.service",
+   "active": "active (running)",
+   "pid": 812,
+   "main": "sshd",
+   "tasks": 1,
+   "memory": "6.1M",
+   "cmd": "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"
+  },
+  "nginx": {
+   "desc": "A high performance web server and a reverse proxy server",
+   "unit": "/lib/systemd/system/nginx.service",
+   "active": "active (running)",
+   "pid": 1034,
+   "main": "nginx",
+   "tasks": 3,
+   "memory": "9.8M",
+   "cmd": "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+  },
+  "docker": {
+   "desc": "Docker Application Container Engine",
+   "unit": "/lib/systemd/system/docker.service",
+   "active": "active (running)",
+   "pid": 911,
+   "main": "dockerd",
+   "tasks": 24,
+   "memory": "88.4M",
+   "cmd": "/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock"
+  },
+  "containerd": {
+   "desc": "containerd container runtime",
+   "unit": "/lib/systemd/system/containerd.service",
+   "active": "active (running)",
+   "pid": 905,
+   "main": "containerd",
+   "tasks": 31,
+   "memory": "312.6M",
+   "cmd": "/usr/bin/containerd"
+  },
+  "cron": {
+   "desc": "Regular background program processing daemon",
+   "unit": "/lib/systemd/system/cron.service",
+   "active": "active (running)",
+   "pid": 601,
+   "main": "cron",
+   "tasks": 1,
+   "memory": "1.1M",
+   "cmd": "/usr/sbin/cron -f -P"
+  },
+  "rsyslog": {
+   "desc": "System Logging Service",
+   "unit": "/lib/systemd/system/rsyslog.service",
+   "active": "active (running)",
+   "pid": 610,
+   "main": "rsyslogd",
+   "tasks": 4,
+   "memory": "3.2M",
+   "cmd": "/usr/sbin/rsyslogd -n -iNONE"
+  },
+  "qf-app": {
+   "desc": "Quillfern shop (docker compose)",
+   "unit": "/etc/systemd/system/qf-app.service",
+   "active": "active (exited)",
+   "pid": null,
+   "main": "docker",
+   "tasks": 0,
+   "memory": "0B",
+   "cmd": ""
+  },
+  "systemd-resolved": {
+   "desc": "Network Name Resolution",
+   "unit": "/lib/systemd/system/systemd-resolved.service",
+   "active": "active (running)",
+   "pid": 514,
+   "main": "systemd-resolve",
+   "tasks": 1,
+   "memory": "6.0M",
+   "cmd": "/lib/systemd/systemd-resolved"
+  },
+  "mysql": null,
+  "apache2": null
+ },
+ "packages": [
+  [
+   "adduser",
+   "3.118ubuntu5",
+   "all",
+   "add and remove users and groups"
+  ],
+  [
+   "apt",
+   "2.4.12",
+   "amd64",
+   "commandline package manager"
+  ],
+  [
+   "base-files",
+   "12ubuntu4.6",
+   "amd64",
+   "Debian base system miscellaneous files"
+  ],
+  [
+   "bash",
+   "5.1-6ubuntu1.1",
+   "amd64",
+   "GNU Bourne Again SHell"
+  ],
+  [
+   "ca-certificates",
+   "20230311ubuntu0.22.04.1",
+   "all",
+   "Common CA certificates"
+  ],
+  [
+   "certbot",
+   "1.21.0-1build1",
+   "all",
+   "automatically configure HTTPS using Let's Encrypt"
+  ],
+  [
+   "containerd",
+   "1.7.12-0ubuntu2~22.04.1",
+   "amd64",
+   "daemon to control runC"
+  ],
+  [
+   "coreutils",
+   "8.32-4.1ubuntu1.2",
+   "amd64",
+   "GNU core utilities"
+  ],
+  [
+   "cron",
+   "3.0pl1-137ubuntu3",
+   "amd64",
+   "process scheduling daemon"
+  ],
+  [
+   "curl",
+   "7.81.0-1ubuntu1.16",
+   "amd64",
+   "command line tool for transferring data with URL syntax"
+  ],
+  [
+   "docker-compose-v2",
+   "2.24.6+ds1-0ubuntu1~22.04.1",
+   "amd64",
+   "tool for running multi-container applications on Docker"
+  ],
+  [
+   "docker.io",
+   "24.0.7-0ubuntu2~22.04.1",
+   "amd64",
+   "Linux container runtime"
+  ],
+  [
+   "git",
+   "1:2.34.1-1ubuntu1.11",
+   "amd64",
+   "fast, scalable, distributed revision control system"
+  ],
+  [
+   "grep",
+   "3.7-1build1",
+   "amd64",
+   "GNU grep, egrep and fgrep"
+  ],
+  [
+   "htop",
+   "3.0.5-7build2",
+   "amd64",
+   "interactive processes viewer"
+  ],
+  [
+   "linux-image-5.15.0-105-generic",
+   "5.15.0-105.115",
+   "amd64",
+   "Signed kernel image generic"
+  ],
+  [
+   "nano",
+   "6.2-1",
+   "amd64",
+   "small, friendly text editor inspired by Pico"
+  ],
+  [
+   "net-tools",
+   "1.60+git20181103.0eebece-1ubuntu5",
+   "amd64",
+   "NET-3 networking toolkit"
+  ],
+  [
+   "nginx",
+   "1.18.0-6ubuntu14.4",
+   "amd64",
+   "small, powerful, scalable web/proxy server"
+  ],
+  [
+   "openssh-server",
+   "1:8.9p1-3ubuntu0.10",
+   "amd64",
+   "secure shell (SSH) server, for secure access from remote machines"
+  ],
+  [
+   "openssl",
+   "3.0.2-0ubuntu1.15",
+   "amd64",
+   "Secure Sockets Layer toolkit - cryptographic utility"
+  ],
+  [
+   "postgresql-client-14",
+   "14.12-0ubuntu0.22.04.1",
+   "amd64",
+   "front-end programs for PostgreSQL 14"
+  ],
+  [
+   "python3",
+   "3.10.6-1~22.04",
+   "amd64",
+   "interactive high-level object-oriented language (default python3 version)"
+  ],
+  [
+   "rsync",
+   "3.2.7-0ubuntu0.22.04.2",
+   "amd64",
+   "fast, versatile, remote (and local) file-copying tool"
+  ],
+  [
+   "rsyslog",
+   "8.2112.0-2ubuntu2.2",
+   "amd64",
+   "reliable system and kernel logging daemon"
+  ],
+  [
+   "sudo",
+   "1.9.9-1ubuntu2.4",
+   "amd64",
+   "Provide limited super user privileges to specific users"
+  ],
+  [
+   "systemd",
+   "249.11-0ubuntu3.12",
+   "amd64",
+   "system and service manager"
+  ],
+  [
+   "tar",
+   "1.34+dfsg-1ubuntu0.1.22.04.2",
+   "amd64",
+   "GNU version of the tar archiving utility"
+  ],
+  [
+   "vim",
+   "2:8.2.3995-1ubuntu2.16",
+   "amd64",
+   "Vi IMproved - enhanced vi editor"
+  ],
+  [
+   "wget",
+   "1.21.2-2ubuntu1",
+   "amd64",
+   "retrieves files from the web"
+  ]
+ ],
+ "containers": [
+  {
+   "id": "3f1c9a2b7e44",
+   "image": "registry.quillfern.lan/qf-shop:1.8.2",
+   "command": "\"gunicorn -w 3 -b 0\u2026\"",
+   "created": "8 hours ago",
+   "status": "Up 8 hours",
+   "ports": "127.0.0.1:8000->8000/tcp",
+   "name": "app-web-1"
+  },
+  {
+   "id": "9a0e44c1d2b3",
+   "image": "postgres:15-alpine",
+   "command": "\"docker-entrypoint.s\u2026\"",
+   "created": "2 weeks ago",
+   "status": "Up 2 weeks",
+   "ports": "127.0.0.1:5432->5432/tcp",
+   "name": "app-db-1"
+  },
+  {
+   "id": "6d2f81aa0c57",
+   "image": "redis:7-alpine",
+   "command": "\"docker-entrypoint.s\u2026\"",
+   "created": "2 weeks ago",
+   "status": "Up 2 weeks",
+   "ports": "127.0.0.1:6379->6379/tcp",
+   "name": "app-redis-1"
+  }
+ ],
+ "images": [
+  [
+   "registry.quillfern.lan/qf-shop",
+   "1.8.2",
+   "b71c02e9f4a1",
+   "8 hours ago",
+   "412MB"
+  ],
+  [
+   "registry.quillfern.lan/qf-shop",
+   "1.8.1",
+   "e04d9a6c3b12",
+   "3 weeks ago",
+   "409MB"
+  ],
+  [
+   "postgres",
+   "15-alpine",
+   "8d1f3e7a0c55",
+   "5 weeks ago",
+   "239MB"
+  ],
+  [
+   "redis",
+   "7-alpine",
+   "c2b9d1e04f7a",
+   "6 weeks ago",
+   "41MB"
+  ]
+ ],
+ "listen": [
+  [
+   "tcp",
+   "0.0.0.0:22",
+   "sshd",
+   812
+  ],
+  [
+   "tcp",
+   "0.0.0.0:80",
+   "nginx",
+   1034
+  ],
+  [
+   "tcp",
+   "127.0.0.1:8000",
+   "docker-proxy",
+   48660
+  ],
+  [
+   "tcp",
+   "127.0.0.1:5432",
+   "docker-proxy",
+   1215
+  ],
+  [
+   "tcp",
+   "127.0.0.1:6379",
+   "docker-proxy",
+   1270
+  ],
+  [
+   "tcp",
+   "127.0.0.53%lo:53",
+   "systemd-resolve",
+   514
+  ],
+  [
+   "tcp6",
+   "[::]:22",
+   "sshd",
+   812
+  ],
+  [
+   "tcp6",
+   "[::]:80",
+   "nginx",
+   1034
+  ],
+  [
+   "udp",
+   "127.0.0.53%lo:53",
+   "systemd-resolve",
+   514
+  ],
+  [
+   "udp",
+   "10.0.4.17%eth0:68",
+   "systemd-network",
+   512
+  ]
+ ],
+ "last": [
+  [
+   "deploy",
+   "pts/0",
+   "192.0.2.18",
+   "Sat Oct 24 08:02",
+   "08:40",
+   "(00:37)"
+  ],
+  [
+   "deploy",
+   "pts/0",
+   "192.0.2.18",
+   "Thu Oct 22 17:15",
+   "17:52",
+   "(00:36)"
+  ],
+  [
+   "root",
+   "pts/0",
+   "192.0.2.18",
+   "Wed Oct 14 11:03",
+   "11:29",
+   "(00:25)"
+  ],
+  [
+   "ubuntu",
+   "pts/0",
+   "192.0.2.18",
+   "Thu Oct  1 06:28",
+   "07:10",
+   "(00:42)"
+  ],
+  [
+   "reboot",
+   "system boot",
+   "5.15.0-105-gener",
+   "Tue Oct  6 04:12",
+   "still running",
+   ""
+  ]
+ ]
+}

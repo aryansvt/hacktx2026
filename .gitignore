@@ -29,3 +29,6 @@ npm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# trap runtime state (host keys, spool)
+trap/state/

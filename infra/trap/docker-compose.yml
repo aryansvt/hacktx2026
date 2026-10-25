@@ -1,0 +1,65 @@
+# production trap. deploy with: sudo bash infra/deploy.sh trap
+# values come from infra/trap/.env, which deploy.sh copies in.
+# local dev uses trap/docker-compose.yml instead.
+name: hacktx-trap
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  trap:
+    build:
+      context: ../..
+      dockerfile: trap/Dockerfile
+    image: hacktx-trap:latest
+    ports:
+      # attackers land here. admin ssh is on 2222 on the host
+      - "22:22"
+    # explicit list instead of env_file, so secrets meant for core never enter this box
+    environment:
+      CORE_URL: ${CORE_URL:?set CORE_URL in .env}
+      INGEST_TOKEN: ${INGEST_TOKEN:?set INGEST_TOKEN in .env}
+      GUEST_SSH_USER: ${GUEST_SSH_USER:-}
+      GUEST_SSH_PASSWORD: ${GUEST_SSH_PASSWORD:-}
+      TEAM_SSH_USER: ${TEAM_SSH_USER:-}
+      TEAM_SSH_PASSWORD: ${TEAM_SSH_PASSWORD:-}
+      TEAM_IPS: ${TEAM_IPS:-}
+      TRAP_MAX_CONNECTIONS: ${TRAP_MAX_CONNECTIONS:-200}
+      TRAP_MAX_SESSIONS_PER_CONN: ${TRAP_MAX_SESSIONS_PER_CONN:-10}
+      TRAP_LOGIN_TIMEOUT: ${TRAP_LOGIN_TIMEOUT:-60}
+      TRAP_IDLE_TIMEOUT: ${TRAP_IDLE_TIMEOUT:-300}
+      TRAP_HARD_TIMEOUT: ${TRAP_HARD_TIMEOUT:-1800}
+      # fixed for the container, whatever .env says
+      TRAP_SSH_HOST: 0.0.0.0
+      TRAP_SSH_PORT: "22"
+      TRAP_STATE_DIR: /state
+      TRAP_LOGINS_PATH: ""
+    volumes:
+      # host keys, spool, cursor, dead letter file. the image chowns /state to 10001
+      - trap-state:/state
+    # binding 22 as uid 10001 with zero capabilities
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 22), 3).close()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  trap-state:

@@ -1,0 +1,10 @@
+# api.<domain> -> backend. caddy gets and renews the cert by itself.
+# reverse_proxy handles the websocket upgrade on /live with no extra config.
+# no trusted_proxies here, so caddy replaces any X-Forwarded-For a client sends
+# with the real peer ip. backend's ingest rate limit relies on that.
+api.{$DOMAIN} {
+	reverse_proxy backend:8000 {
+		# keep /live sockets up for a while across config reloads
+		stream_close_delay 5m
+	}
+}

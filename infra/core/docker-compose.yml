@@ -1,0 +1,121 @@
+# production core. deploy with: sudo bash infra/deploy.sh core
+# values come from infra/core/.env, which deploy.sh copies in.
+#
+# only caddy publishes ports. docker-published ports skip ufw, so nothing
+# else may ever get a ports: entry. backend trusts caddy's X-Forwarded-For.
+name: hacktx-core
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # certs live here, keep them across restarts
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - front
+    # started, not healthy: certs should still get issued while the db is down
+    depends_on:
+      - backend
+    restart: unless-stopped
+    logging: *logging
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: backend/Dockerfile
+    image: hacktx-backend:latest
+    env_file: .env
+    environment:
+      # .env has the local one
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+    # no ports: caddy reaches it on the front network
+    networks:
+      - front
+      - back
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+    logging: *logging
+
+  brain:
+    build:
+      context: ../..
+      dockerfile: brain/Dockerfile
+    image: hacktx-brain:latest
+    env_file: .env
+    environment:
+      # .env has the local redis and windows paths
+      REDIS_URL: redis://:${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}@redis:6379/0
+      GEOIP_DB_PATH: /data/GeoLite2-City.mmdb
+      GEOIP_ASN_DB_PATH: /data/GeoLite2-ASN.mmdb
+    volumes:
+      - ${GEOIP_HOST_DIR:-/opt/geoip}:/data:ro
+    networks:
+      - back
+      - egress
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    # password goes in a config file so it doesn't show up in ps
+    command:
+      - sh
+      - -c
+      - |
+        umask 077
+        printf 'requirepass %s\nappendonly yes\ndir /data\n' "$$REDIS_PASSWORD" > /tmp/redis.conf
+        chown redis:redis /tmp/redis.conf
+        exec docker-entrypoint.sh redis-server /tmp/redis.conf
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    # internal network only, never published to the host
+    networks:
+      - back
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    logging: *logging
+
+networks:
+  # caddy <-> backend, and backend's way out to tiger data
+  front:
+  # backend, brain, redis. no route out
+  back:
+    internal: true
+  # brain's way out to tiger data, the llm api and serpapi
+  egress:
+
+volumes:
+  caddy-data:
+  caddy-config:
+  redis-data:

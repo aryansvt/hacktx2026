@@ -133,11 +133,18 @@
     transform 150ms ease-out;
   pointer-events: none;
 }
-.counter:hover .tip,
 .counter:focus-visible .tip {
   opacity: 1;
   transform: translate(-50%, 0);
   transition-delay: 250ms;
+}
+/* touch taps shouldn't leave a tooltip stuck open */
+@media (hover: hover) and (pointer: fine) {
+  .counter:hover .tip {
+    opacity: 1;
+    transform: translate(-50%, 0);
+    transition-delay: 250ms;
+  }
 }
 .caption {
   align-self: center;

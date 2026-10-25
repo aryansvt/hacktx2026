@@ -59,10 +59,10 @@ export default function CreaturePage({
               : {
                   opacity: 0,
                   rotateY: -60,
-                  transition: { duration: 0.2, ease: [0.4, 0, 1, 1] },
+                  transition: { duration: 0.18, ease: [0.23, 1, 0.32, 1] },
                 }
           }
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           style={{ transformOrigin: "left center", transformPerspective: 1400 }}
         >
           <Corners />

@@ -97,7 +97,7 @@ export default function Bestiary() {
             initial={reduce ? { opacity: 0 } : { opacity: 0, rotateY: 70 }}
             animate={reduce ? { opacity: 1 } : { opacity: 1, rotateY: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, rotateY: 40 }}
-            transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+            transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
           >
             <header className={orn.chapter}>
               <h2>The Bestiary</h2>

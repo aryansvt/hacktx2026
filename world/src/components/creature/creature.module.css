@@ -643,12 +643,14 @@
   text-decoration: none;
   color: var(--ink);
   transition:
-    transform 160ms ease,
-    border-color 160ms ease;
+    transform 160ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
-.sources a:hover {
-  border-color: var(--gold-deep);
-  transform: translateX(2px);
+@media (hover: hover) and (pointer: fine) {
+  .sources a:hover {
+    border-color: var(--gold-deep);
+    transform: translateX(2px);
+  }
 }
 .srcTitle {
   font-size: 15px;

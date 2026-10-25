@@ -261,7 +261,7 @@ function Feed({ reduce }: { reduce: boolean }) {
       initial={reduce ? { opacity: 0 } : { opacity: 0, rotateY: -80 }}
       animate={{ opacity: 1, rotateY: 0 }}
       exit={reduce ? { opacity: 0 } : { opacity: 0, rotateY: -70 }}
-      transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
     >
       <header className={styles.feedHead}>
         <div className={orn.chapter}>

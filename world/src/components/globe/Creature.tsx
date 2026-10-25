@@ -20,7 +20,15 @@ import type { AttackerSummary, SessionSummary } from "@/lib/contracts";
 import { creatureOf, type Variant } from "@/lib/creatures";
 import { screen } from "@/lib/screen";
 import { useView } from "@/lib/view-store";
-import { GLOBE_R, gateSlot, hash01, progressFor, slerp, toXYZ, type V3 } from "./geo";
+import {
+  GLOBE_R,
+  gateSlot,
+  hash01,
+  progressFor,
+  slerp,
+  toXYZ,
+  type V3,
+} from "./geo";
 import { castlePos, castleUp, glowTexture, live, palette } from "./shared";
 
 const BASE = 0.056;
@@ -104,7 +112,15 @@ function makeMats(variant: Variant, color: string, source: string): Mats {
 
 type Wings = RefObject<Mesh[]>;
 
-function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }) {
+function Body({
+  variant,
+  m,
+  wings,
+}: {
+  variant: Variant;
+  m: Mats;
+  wings: Wings;
+}) {
   const wing = (i: number) => (el: Mesh | null) => {
     if (el) wings.current[i] = el;
   };
@@ -125,12 +141,20 @@ function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }
             </mesh>
           ))}
           {[-1, 1].map((s) => (
-            <mesh key={`l${s}`} position={[s * 0.26, 0.16, 0]} material={m.dark}>
+            <mesh
+              key={`l${s}`}
+              position={[s * 0.26, 0.16, 0]}
+              material={m.dark}
+            >
               <boxGeometry args={[0.32, 0.34, 0.34]} />
             </mesh>
           ))}
           {[-1, 1].map((s) => (
-            <mesh key={`e${s}`} position={[s * 0.14, 1.5, 0.26]} material={m.eye}>
+            <mesh
+              key={`e${s}`}
+              position={[s * 0.14, 1.5, 0.26]}
+              material={m.eye}
+            >
               <boxGeometry args={[0.1, 0.08, 0.02]} />
             </mesh>
           ))}
@@ -195,7 +219,11 @@ function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }
             </group>
           ))}
           {[-1, 1].map((s) => (
-            <mesh key={`e${s}`} position={[s * 0.07, 1.35, 0.18]} material={m.eye}>
+            <mesh
+              key={`e${s}`}
+              position={[s * 0.07, 1.35, 0.18]}
+              material={m.eye}
+            >
               <sphereGeometry args={[0.03, 6, 6]} />
             </mesh>
           ))}
@@ -207,7 +235,11 @@ function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }
           <mesh position={[0, 0.75, 0]} scale={[1, 1.35, 1]} material={m.main}>
             <sphereGeometry args={[0.55, 14, 14]} />
           </mesh>
-          <mesh position={[0, 0.2, 0]} rotation={[Math.PI, 0, 0]} material={m.main}>
+          <mesh
+            position={[0, 0.2, 0]}
+            rotation={[Math.PI, 0, 0]}
+            material={m.main}
+          >
             <coneGeometry args={[0.5, 0.5, 10]} />
           </mesh>
           {[-1, 1].map((s) => (
@@ -223,7 +255,11 @@ function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }
           <mesh position={[0, 0.4, 0]} scale={[1, 0.62, 1]} material={m.main}>
             <sphereGeometry args={[0.65, 16, 16]} />
           </mesh>
-          <mesh position={[0, 0.42, 0]} scale={[0.6, 0.38, 0.6]} material={m.glow}>
+          <mesh
+            position={[0, 0.42, 0]}
+            scale={[0.6, 0.38, 0.6]}
+            material={m.glow}
+          >
             <sphereGeometry args={[0.65, 12, 12]} />
           </mesh>
           {[-1, 1].map((s) => (
@@ -236,16 +272,28 @@ function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }
     case "dragon":
       return (
         <>
-          <mesh position={[0, 0.9, 0]} scale={[0.55, 0.5, 1.25]} material={m.main}>
+          <mesh
+            position={[0, 0.9, 0]}
+            scale={[0.55, 0.5, 1.25]}
+            material={m.main}
+          >
             <sphereGeometry args={[0.6, 14, 14]} />
           </mesh>
-          <mesh position={[0, 1.25, 0.85]} rotation={[Math.PI / 2.6, 0, 0]} material={m.main}>
+          <mesh
+            position={[0, 1.25, 0.85]}
+            rotation={[Math.PI / 2.6, 0, 0]}
+            material={m.main}
+          >
             <coneGeometry args={[0.2, 0.75, 10]} />
           </mesh>
           <mesh position={[0, 1.5, 1.15]} material={m.dark}>
             <boxGeometry args={[0.28, 0.22, 0.4]} />
           </mesh>
-          <mesh position={[0, 0.85, -1.05]} rotation={[-Math.PI / 2, 0, 0]} material={m.main}>
+          <mesh
+            position={[0, 0.85, -1.05]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            material={m.main}
+          >
             <coneGeometry args={[0.18, 0.9, 8]} />
           </mesh>
           {[-1, 1].map((s, i) => (
@@ -261,7 +309,11 @@ function Body({ variant, m, wings }: { variant: Variant; m: Mats; wings: Wings }
             </group>
           ))}
           {[-1, 1].map((s) => (
-            <mesh key={`e${s}`} position={[s * 0.1, 1.58, 1.33]} material={m.eye}>
+            <mesh
+              key={`e${s}`}
+              position={[s * 0.1, 1.58, 1.33]}
+              material={m.eye}
+            >
               <sphereGeometry args={[0.04, 6, 6]} />
             </mesh>
           ))}
@@ -291,7 +343,7 @@ export const Creature = memo(function Creature({
   reduced: boolean;
   onHover: (k: string | null) => void;
 }) {
-  const c = creatureOf(a.attacker, a.max_threat, a.visits);
+  const c = creatureOf(a.attacker, a.max_threat, a.visits, a.source);
   const m = useMemo(
     () => makeMats(c.variant, c.color, a.source),
     [c.variant, c.color, a.source],
@@ -307,7 +359,10 @@ export const Creature = memo(function Creature({
   const halo = useRef<Mesh>(null!);
   const glow = useRef<Sprite>(null!);
   const wings = useRef<Mesh[]>([]);
-  const origin = useMemo<V3>(() => toXYZ(a.geo.lat, a.geo.lon), [a.geo.lat, a.geo.lon]);
+  const origin = useMemo<V3>(
+    () => toXYZ(a.geo.lat, a.geo.lon),
+    [a.geo.lat, a.geo.lon],
+  );
   const slot = useMemo(() => gateSlot(k, castlePos.toArray() as V3), [k]);
   const state = useRef({ prog: -1, fade: 1, sel: 0 });
   const phase = useMemo(() => hash01(k, 3) * Math.PI * 2, [k]);
@@ -328,7 +383,8 @@ export const Creature = memo(function Creature({
     let alt = 0.006;
     // facing: toward the gate while marching, toward the castle once there
     tmp.set(slot[0], slot[1], slot[2]).sub(up);
-    if (s.prog > 0.98 || tmp.lengthSq() < 1e-5) tmp.copy(castlePos).sub(root.current.position);
+    if (s.prog > 0.98 || tmp.lengthSq() < 1e-5)
+      tmp.copy(castlePos).sub(root.current.position);
     if (dragon) {
       alt = 0.12;
       if (s.prog > 0.95) {
@@ -341,11 +397,16 @@ export const Creature = memo(function Creature({
           .addScaledVector(right, Math.cos(ang) * 0.42)
           .addScaledVector(fwd, Math.sin(ang) * 0.42)
           .normalize();
-        tmp.copy(right).multiplyScalar(-Math.sin(ang)).addScaledVector(fwd, Math.cos(ang));
+        tmp
+          .copy(right)
+          .multiplyScalar(-Math.sin(ang))
+          .addScaledVector(fwd, Math.cos(ang));
         alt = 0.22;
       }
     }
-    const bob = reduced ? 0 : Math.abs(Math.sin(t * 6 + phase)) * 0.01 * (dragon ? 2 : 1);
+    const bob = reduced
+      ? 0
+      : Math.abs(Math.sin(t * 6 + phase)) * 0.01 * (dragon ? 2 : 1);
     root.current.position.copy(up).multiplyScalar(GLOBE_R + alt + bob);
     // build an upright basis on the surface
     fwd.copy(tmp).addScaledVector(up, -tmp.dot(up));
@@ -359,10 +420,15 @@ export const Creature = memo(function Creature({
     if (!reduced) {
       body.current.rotation.z = Math.sin(t * 6 + phase) * 0.12;
       if (c.variant === "slime")
-        body.current.scale.set(1 + Math.sin(t * 5 + phase) * 0.08, 1 - Math.sin(t * 5 + phase) * 0.1, 1);
+        body.current.scale.set(
+          1 + Math.sin(t * 5 + phase) * 0.08,
+          1 - Math.sin(t * 5 + phase) * 0.1,
+          1,
+        );
       const w = wings.current;
       if (w.length === 2) {
-        const f = Math.sin(t * (dragon ? 5 : 14) + phase) * (dragon ? 0.5 : 0.6);
+        const f =
+          Math.sin(t * (dragon ? 5 : 14) + phase) * (dragon ? 0.5 : 0.6);
         if (dragon) {
           w[0].parent!.rotation.z = f;
           w[1].parent!.rotation.z = -f;
@@ -393,7 +459,10 @@ export const Creature = memo(function Creature({
     let pos = live.positions.get(k);
     if (!pos) live.positions.set(k, (pos = new Vector3()));
     pos.copy(root.current.position);
-    tmp.copy(root.current.position).addScaledVector(up, size * 1.2).project(cam);
+    tmp
+      .copy(root.current.position)
+      .addScaledVector(up, size * 1.2)
+      .project(cam);
     let sp = screen.creatures.get(k);
     if (!sp) screen.creatures.set(k, (sp = { x: 0, y: 0, visible: false }));
     sp.x = ((tmp.x + 1) * st.size.width) / 2;
@@ -424,7 +493,12 @@ export const Creature = memo(function Creature({
     <group ref={root}>
       <sprite ref={glow} position={[0, 0.8, 0]} material={m.sprite} />
       {ringed && (
-        <mesh ref={halo} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} material={m.ring}>
+        <mesh
+          ref={halo}
+          rotation={[-Math.PI / 2, 0, 0]}
+          position={[0, 0.05, 0]}
+          material={m.ring}
+        >
           <ringGeometry args={[0.85, 1.05, 32]} />
         </mesh>
       )}
@@ -456,7 +530,12 @@ export const Creature = memo(function Creature({
         }}
       >
         <sphereGeometry args={[1.5, 8, 8]} />
-        <meshBasicMaterial transparent opacity={0} depthWrite={false} colorWrite={false} />
+        <meshBasicMaterial
+          transparent
+          opacity={0}
+          depthWrite={false}
+          colorWrite={false}
+        />
       </mesh>
     </group>
   );

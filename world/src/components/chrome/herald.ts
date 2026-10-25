@@ -40,7 +40,7 @@ export function heraldFor(e: AttackEvent, ctx: HeraldCtx): Herald | null {
       tone: "guest",
     };
   }
-  const c = creatureOf(e.attacker);
+  const c = creatureOf(e.attacker, e.attacker.threat, 1, e.source);
   if (e.type === "tripwire") {
     return {
       fantasy: `Hear ye! A ${c.name.toLowerCase()} from ${placeOf(e.geo)} fell for the tripwire`,

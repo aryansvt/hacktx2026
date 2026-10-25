@@ -161,7 +161,11 @@ export function Earth({ reduced }: { reduced: boolean }) {
     <>
       <ambientLight intensity={0.55} color="#b9c6ff" />
       <directionalLight position={[4, 5, 6]} intensity={1.6} color="#fff1d0" />
-      <directionalLight position={[-6, -2, -4]} intensity={0.4} color="#5b7be6" />
+      <directionalLight
+        position={[-6, -2, -4]}
+        intensity={0.4}
+        color="#5b7be6"
+      />
       <points geometry={starGeo}>
         <primitive object={starMat} ref={stars} attach="material" />
       </points>

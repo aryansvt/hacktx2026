@@ -50,7 +50,9 @@ test("progressFor maps session status to a spot on the trail", () => {
   assert.equal(progressFor("inside"), 1);
   close(progressFor("approaching", 0), 0.1);
   close(progressFor("approaching", 60_000), 0.6);
-  assert.ok(progressFor("approaching", 15_000) < progressFor("approaching", 25_000));
+  assert.ok(
+    progressFor("approaching", 15_000) < progressFor("approaching", 25_000),
+  );
 });
 
 test("gateSlot is stable, on the surface, and near the castle", () => {

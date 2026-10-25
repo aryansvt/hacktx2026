@@ -84,8 +84,14 @@ export function Trails({
   const crumbGeo = useMemo(() => {
     const n = (MAX_ARCS + 1) * CRUMBS;
     const g = new BufferGeometry();
-    g.setAttribute("position", new Float32BufferAttribute(new Float32Array(n * 3), 3));
-    g.setAttribute("color", new Float32BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute(
+      "position",
+      new Float32BufferAttribute(new Float32Array(n * 3), 3),
+    );
+    g.setAttribute(
+      "color",
+      new Float32BufferAttribute(new Float32Array(n * 3), 3),
+    );
     return g;
   }, []);
   useEffect(() => () => crumbGeo.dispose(), [crumbGeo]);
@@ -107,7 +113,9 @@ export function Trails({
       const speed = arc.active ? 0.07 : 0.025;
       for (let j = 0; j < count; j++) {
         const seed = hash01(arc.k, j + 20);
-        const u = reduced ? (j + 0.5) / count : (seed + j / count + t * speed) % 1;
+        const u = reduced
+          ? (j + 0.5) / count
+          : (seed + j / count + t * speed) % 1;
         const f = u * SEG;
         const i = Math.min(SEG - 1, Math.floor(f)),
           w = f - i;

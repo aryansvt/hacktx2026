@@ -49,7 +49,12 @@ function Moment({ e, onDone }: { e: Dossier; onDone: () => void }) {
   const key = creatureKey(e);
   const max = useDomain((s) => s.data.attackers[key]?.max_threat);
   const visits = useDomain((s) => s.data.attackers[key]?.visits);
-  const creature = creatureOf(e.attacker, max ?? e.attacker.threat, visits);
+  const creature = creatureOf(
+    e.attacker,
+    max ?? e.attacker.threat,
+    visits,
+    e.source,
+  );
   const sources = e.detail.sources.slice(0, 4);
   const verdict = e.attacker.reputation;
 

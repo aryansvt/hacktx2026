@@ -45,3 +45,20 @@ test("kiosk highlight prefers tripwire, then threat, then newest", () => {
   assert.equal(pickHighlight([low, high], new Set(["low"]))?.ip_hash, "low");
   assert.equal(pickHighlight([], new Set()), null);
 });
+
+test("guests are knights, never slimes", async () => {
+  const { creatureOf } = await import("../src/lib/creatures");
+  const profile = {
+    kind: "human" as const,
+    confidence: 1,
+    reputation: "harmless" as const,
+    family: null,
+    threat: "low" as const,
+  };
+  assert.equal(creatureOf(profile).label, "Slime (human)");
+  assert.equal(
+    creatureOf(profile, "low", 1, "guest").label,
+    "Guest knight (human)",
+  );
+  assert.equal(creatureOf(profile, "low", 1, "guest").variant, "mage");
+});

@@ -67,15 +67,23 @@ export function creatureOf(
   a: AttackerProfile,
   max: Threat = a.threat,
   visits = 1,
+  source?: Source,
 ): Creature {
-  const variant = variantOf(a, max);
-  const kind = kindLabel[a.kind];
+  // guests are judges at our table: always a knight, never a slime
+  const guest = source === "guest";
+  const variant = guest ? "mage" : variantOf(a, max);
+  const kind = guest ? "human" : kindLabel[a.kind];
+  const name = guest ? "Guest knight" : names[variant];
   return {
     variant,
-    name: names[variant],
+    name,
     kind,
-    label: `${names[variant]} (${kind})`,
-    color: variant === "dragon" ? "#c8412b" : kindColor[a.kind],
+    label: `${name} (${kind})`,
+    color: guest
+      ? kindColor.human
+      : variant === "dragon"
+        ? "#c8412b"
+        : kindColor[a.kind],
     malicious: a.reputation === "malicious",
     scale: Math.min(1.6, 1 + Math.max(0, visits - 1) * 0.06),
   };

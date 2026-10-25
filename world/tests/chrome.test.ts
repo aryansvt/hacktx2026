@@ -143,7 +143,10 @@ test("tripwire, dragon, dossier and new country heralds", () => {
   assert.equal(oracle?.plain, "Web reputation lookup returned malicious");
 
   const fresh = ev("session_start", {}, { country: "JP", city: "Tokyo" });
-  assert.equal(heraldFor(fresh, ctx)?.fantasy, "A stranger arrives from Japan!");
+  assert.equal(
+    heraldFor(fresh, ctx)?.fantasy,
+    "A stranger arrives from Japan!",
+  );
   remember(fresh, ctx);
   assert.equal(heraldFor(fresh, ctx), null);
   assert.equal(
@@ -170,7 +173,10 @@ test("sentence reads like plain english with the creature kind", () => {
       ev(
         "tripwire",
         { tripwire_id: "t", reasons: [] },
-        { city: "Frankfurt", attacker: { kind: "agent", reputation: "malicious" } },
+        {
+          city: "Frankfurt",
+          attacker: { kind: "agent", reputation: "malicious" },
+        },
       ),
     ),
     "Cursed fae (AI agent) from Frankfurt fell for a tripwire",
@@ -207,7 +213,10 @@ test("session fallback sentence and helpers", () => {
   );
   assert.equal(flagOf("US"), "\u{1F1FA}\u{1F1F8}");
   assert.equal(flagOf("XX"), "");
-  assert.equal(ago("2026-10-25T14:00:00Z", Date.parse("2026-10-25T14:02:00Z")), "2m ago");
+  assert.equal(
+    ago("2026-10-25T14:00:00Z", Date.parse("2026-10-25T14:02:00Z")),
+    "2m ago",
+  );
 });
 
 test("herald queue holds three and never drops a guest", () => {

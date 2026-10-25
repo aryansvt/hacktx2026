@@ -56,8 +56,8 @@ function useRows(limit: number): Row[] {
       const key = creatureKey(e);
       const a = look(key);
       const c = a
-        ? creatureOf(a.attacker, a.max_threat, a.visits)
-        : creatureOf(e.attacker);
+        ? creatureOf(a.attacker, a.max_threat, a.visits, a.source)
+        : creatureOf(e.attacker, e.attacker.threat, 1, e.source);
       fromEvents.push({
         id,
         key,
@@ -81,8 +81,8 @@ function useRows(limit: number): Row[] {
         const key = creatureKey(s);
         const a = look(key);
         const c = a
-          ? creatureOf(a.attacker, a.max_threat, a.visits)
-          : creatureOf(s.attacker);
+          ? creatureOf(a.attacker, a.max_threat, a.visits, a.source)
+          : creatureOf(s.attacker, s.attacker.threat, 1, s.source);
         return {
           id: s.session_id,
           key,
@@ -272,7 +272,9 @@ function Feed({ reduce }: { reduce: boolean }) {
                 <button
                   type="button"
                   className={styles.row}
-                  onClick={() => select(row.key, row.session, "activity", row.id)}
+                  onClick={() =>
+                    select(row.key, row.session, "activity", row.id)
+                  }
                 >
                   <Emblem row={row} />
                   <span className={styles.rowText}>

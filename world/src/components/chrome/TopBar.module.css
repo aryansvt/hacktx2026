@@ -28,7 +28,11 @@
   padding-bottom: 2px;
   color: var(--bg);
   background:
-    radial-gradient(circle at 30% 25%, rgba(255, 255, 255, 0.18), transparent 55%),
+    radial-gradient(
+      circle at 30% 25%,
+      rgba(255, 255, 255, 0.18),
+      transparent 55%
+    ),
     var(--blue);
   border: 2px solid var(--gold);
   outline: 1px solid var(--gold-deep);

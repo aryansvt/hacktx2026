@@ -15,8 +15,8 @@ const article = (s: string) => (/^[aeiou]/i.test(s) ? `an ${s}` : `a ${s}`);
 // commands are wrapped in backticks so the ui can render them as code
 export function sentence(e: AttackEvent, a?: AttackerSummary): string {
   const c = a
-    ? creatureOf(a.attacker, a.max_threat, a.visits)
-    : creatureOf(e.attacker);
+    ? creatureOf(a.attacker, a.max_threat, a.visits, a.source)
+    : creatureOf(e.attacker, e.attacker.threat, 1, e.source);
   const who = `${c.label} from ${placeOf(e.geo)}`;
   switch (e.type) {
     case "session_start":
@@ -45,10 +45,13 @@ export function sentence(e: AttackEvent, a?: AttackerSummary): string {
 }
 
 // fallback rows before any live events arrive
-export function sessionSentence(s: SessionSummary, a?: AttackerSummary): string {
+export function sessionSentence(
+  s: SessionSummary,
+  a?: AttackerSummary,
+): string {
   const c = a
-    ? creatureOf(a.attacker, a.max_threat, a.visits)
-    : creatureOf(s.attacker);
+    ? creatureOf(a.attacker, a.max_threat, a.visits, a.source)
+    : creatureOf(s.attacker, s.attacker.threat, 1, s.source);
   const who = `${c.label} from ${placeOf(s.geo)}`;
   const ran = plural(s.command_count, "command");
   switch (s.status) {

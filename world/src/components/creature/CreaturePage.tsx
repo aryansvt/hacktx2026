@@ -187,9 +187,14 @@ function Body({ adapter }: { adapter: DataAdapter | null }) {
   }
 
   const maxThreat = attacker?.max_threat ?? profile.threat;
-  const creature = creatureOf(profile, maxThreat, attacker?.visits ?? 1);
-  const geo = attacker?.geo ?? session!.geo;
   const source = attacker?.source ?? session?.source ?? "wild";
+  const creature = creatureOf(
+    profile,
+    maxThreat,
+    attacker?.visits ?? 1,
+    source,
+  );
+  const geo = attacker?.geo ?? session!.geo;
   const tag = sourceTag(source);
   const reasons = reasonsOf(events);
   const story = session?.story ?? latestOf(events, "story")?.detail.story;

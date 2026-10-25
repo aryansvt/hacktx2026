@@ -91,9 +91,8 @@
   transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
   touch-action: none;
 }
-/* a left panel is open: slide the globe right so its center stays clear */
+/* the camera frames the selected creature itself, so the globe stays put */
 .shifted {
-  transform: translateX(min(250px, 14vw));
 }
 .pill {
   position: absolute;
@@ -119,7 +118,7 @@
   pointer-events: none;
 }
 .shiftHint {
-  left: calc(50% + min(250px, 14vw));
+  left: calc(50% + 120px);
 }
 .latest {
   position: absolute;
@@ -449,21 +448,10 @@
     top: auto;
     bottom: 145px;
   }
-  .world {
-    height: calc(100dvh - 150px);
-    width: calc(100dvh - 150px);
-  }
 }
 @media (max-width: 1500px) {
   .stats {
     gap: 30px;
-  }
-  .shifted,
-  .direct {
-    left: calc(50% + 220px);
-  }
-  .shiftHint {
-    left: calc(50% + 220px);
   }
   .panel {
     left: 30px;
@@ -472,12 +460,6 @@
   .latest {
     left: 30px;
     width: 420px;
-  }
-  .world {
-    max-width: calc(100vw - 520px);
-  }
-  .world:not(.shifted):not(.direct) {
-    max-width: 900px;
   }
 }
 @media (max-width: 1100px) {
@@ -494,16 +476,6 @@
   .latest {
     width: 360px;
     left: 20px;
-  }
-  .shifted,
-  .direct {
-    left: calc(50% + 180px);
-  }
-  .world {
-    max-width: calc(100vw - 410px);
-  }
-  .shiftHint {
-    left: calc(50% + 180px);
   }
   .popup {
     padding: 24px 18px;
@@ -541,22 +513,6 @@
   .mode {
     top: 112px;
     right: 16px;
-  }
-  .world,
-  .world.shifted,
-  .world.direct {
-    width: 100vw;
-    height: 460px;
-    max-width: 100vw;
-    left: 50%;
-    top: 360px;
-  }
-  .hint,
-  .shiftHint {
-    top: 565px;
-    bottom: auto;
-    left: 50%;
-    font-size: 13px;
   }
   .panel,
   .latest {

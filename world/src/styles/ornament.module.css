@@ -8,10 +8,14 @@
   background-image:
     var(--flourish-tl), var(--flourish-tr), var(--flourish-bl),
     var(--flourish-br), var(--parchment-noise),
-    radial-gradient(ellipse at 30% 0%, rgba(255, 250, 235, 0.7), transparent 60%),
+    radial-gradient(
+      ellipse at 30% 0%,
+      rgba(255, 250, 235, 0.7),
+      transparent 60%
+    ),
     linear-gradient(180deg, var(--bg) 0%, var(--surface) 100%);
-  background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat,
-    no-repeat, no-repeat;
+  background-repeat:
+    no-repeat, no-repeat, no-repeat, no-repeat, repeat, no-repeat, no-repeat;
   background-position:
     top 5px left 5px,
     top 5px right 5px,
@@ -49,8 +53,20 @@
   line-height: 1.1;
   letter-spacing: 0.01em;
   color: var(--bg);
-  background: linear-gradient(180deg, #2b4ea6 0%, var(--ribbon-bg) 55%, #172e6b 100%);
-  clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 50%, 100% 100%, 0 100%, 12px 50%);
+  background: linear-gradient(
+    180deg,
+    #2b4ea6 0%,
+    var(--ribbon-bg) 55%,
+    #172e6b 100%
+  );
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    calc(100% - 12px) 50%,
+    100% 100%,
+    0 100%,
+    12px 50%
+  );
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
   box-shadow:
     inset 0 1px 0 rgba(240, 207, 106, 0.6),
@@ -132,8 +148,18 @@
   color: rgba(255, 240, 220, 0.92);
   font-family: var(--font-display);
   background:
-    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.35), transparent 40%),
-    radial-gradient(circle at 50% 50%, var(--seal) 0 58%, color-mix(in srgb, var(--seal) 70%, black) 62%, var(--seal) 70%, color-mix(in srgb, var(--seal) 60%, black) 100%);
+    radial-gradient(
+      circle at 35% 30%,
+      rgba(255, 255, 255, 0.35),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      var(--seal) 0 58%,
+      color-mix(in srgb, var(--seal) 70%, black) 62%,
+      var(--seal) 70%,
+      color-mix(in srgb, var(--seal) 60%, black) 100%
+    );
   box-shadow:
     inset 0 -2px 3px rgba(0, 0, 0, 0.35),
     inset 0 2px 2px rgba(255, 255, 255, 0.25),

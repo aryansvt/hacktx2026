@@ -7,8 +7,7 @@ import { easeInOut, slerp, type V3 } from "./geo";
 import { live } from "./shared";
 
 // globe is 4 units wide; about 700px tall at 1080p, smaller on narrow screens
-export const baseZoom = (w: number, h: number) =>
-  Math.min(h * 0.162, w * 0.19);
+export const baseZoom = (w: number, h: number) => Math.min(h * 0.162, w * 0.19);
 
 interface Flight {
   from: V3;
@@ -51,7 +50,10 @@ export function CameraRig({
           return p ? (p.clone().normalize().toArray() as V3) : null;
         },
         zoomFrom: cam.zoom,
-        zoomTo: Math.max(cam.zoom, baseZoom(get().size.width, get().size.height) * 1.35),
+        zoomTo: Math.max(
+          cam.zoom,
+          baseZoom(get().size.width, get().size.height) * 1.35,
+        ),
         start: clock.current,
       };
     } else if (home.current) {
@@ -71,7 +73,10 @@ export function CameraRig({
     clock.current += dt;
     const f = flight.current;
     if (!f) return;
-    const controls = st.controls as unknown as { enabled: boolean; update: () => void } | null;
+    const controls = st.controls as unknown as {
+      enabled: boolean;
+      update: () => void;
+    } | null;
     const cam = st.camera as OrthographicCamera;
     const to = f.to();
     if (!to) {

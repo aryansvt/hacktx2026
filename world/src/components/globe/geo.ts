@@ -40,7 +40,13 @@ export function slerp(a: V3, b: V3, t: number): V3 {
 }
 
 // point on a raised great-circle arc. lift scales with arc length so short hops stay low
-export function arcPoint(a: V3, b: V3, t: number, r = GLOBE_R, lift = 0.35): V3 {
+export function arcPoint(
+  a: V3,
+  b: V3,
+  t: number,
+  r = GLOBE_R,
+  lift = 0.35,
+): V3 {
   const angle = Math.acos(Math.max(-1, Math.min(1, dot(norm(a), norm(b)))));
   const h = Math.sin(t * Math.PI) * lift * Math.min(1, angle / 1.2 + 0.08);
   return scale(slerp(a, b, t), r + h);
@@ -67,7 +73,12 @@ export function hash01(s: string, salt = 0): number {
 }
 
 // a spot on the gate ring around the castle, offset on the surface by angle and radius
-export function gateSlot(key: string, castle: V3, inner = 0.23, outer = 0.38): V3 {
+export function gateSlot(
+  key: string,
+  castle: V3,
+  inner = 0.23,
+  outer = 0.38,
+): V3 {
   const up = norm(castle);
   // tangent basis at the castle
   const ref: V3 = Math.abs(up[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];

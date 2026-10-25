@@ -69,7 +69,9 @@ export function Tags({
           }}
         >
           {t.label && (
-            <span className={t.guest ? styles.guest : styles.sim}>{t.label}</span>
+            <span className={t.guest ? styles.guest : styles.sim}>
+              {t.label}
+            </span>
           )}
           {t.badge && <span className={styles.badge}>{t.badge}</span>}
         </div>

@@ -23,7 +23,15 @@ import { creatureKey } from "@/lib/domain";
 import { creatureOf } from "@/lib/creatures";
 import type { AttackEvent } from "@/lib/contracts";
 import { GLOBE_R, hash01, toXYZ } from "./geo";
-import { castlePos, castleUp, glowTexture, live, palette, runeTexture, runes } from "./shared";
+import {
+  castlePos,
+  castleUp,
+  glowTexture,
+  live,
+  palette,
+  runeTexture,
+  runes,
+} from "./shared";
 
 type Kind = "spark" | "flash" | "rune" | "trip" | "puff";
 interface Fx {
@@ -84,8 +92,14 @@ export function Effects({ reduced }: { reduced: boolean }) {
   );
   const heatGeo = useMemo(() => {
     const g = new BufferGeometry();
-    g.setAttribute("position", new Float32BufferAttribute(new Float32Array(HEAT * 3), 3));
-    g.setAttribute("color", new Float32BufferAttribute(new Float32Array(HEAT * 3), 3));
+    g.setAttribute(
+      "position",
+      new Float32BufferAttribute(new Float32Array(HEAT * 3), 3),
+    );
+    g.setAttribute(
+      "color",
+      new Float32BufferAttribute(new Float32Array(HEAT * 3), 3),
+    );
     g.setDrawRange(0, 0);
     return g;
   }, []);
@@ -122,18 +136,31 @@ export function Effects({ reduced }: { reduced: boolean }) {
         i = list.reduce((o, x, j) => (x!.start < list[o]!.start ? j : o), 0);
       list[i] = { ...f, start: clock.current };
       const s = pool[i];
-      s.material.map = f.kind === "rune" ? runeTexture(runes[Math.floor(hash01(String(clock.current), 5) * runes.length)]) : glowTexture();
+      s.material.map =
+        f.kind === "rune"
+          ? runeTexture(
+              runes[
+                Math.floor(hash01(String(clock.current), 5) * runes.length)
+              ],
+            )
+          : glowTexture();
       s.material.needsUpdate = true;
       s.material.color.copy(f.color);
     };
     const ripple = (pos: Vector3, color: Color) => {
       const list = ripples.current;
       let i = list.findIndex((x) => !x);
-      if (i < 0) i = list.reduce((o, x, j) => (x!.start < list[o]!.start ? j : o), 0);
+      if (i < 0)
+        i = list.reduce((o, x, j) => (x!.start < list[o]!.start ? j : o), 0);
       list[i] = { start: clock.current, life: 2.2, pos, color };
       const r = rings[i];
       r.position.copy(pos).multiplyScalar(1.003);
-      r.quaternion.copy(new Quaternion().setFromUnitVectors(new Vector3(0, 0, 1), pos.clone().normalize()));
+      r.quaternion.copy(
+        new Quaternion().setFromUnitVectors(
+          new Vector3(0, 0, 1),
+          pos.clone().normalize(),
+        ),
+      );
       r.material.color.copy(color);
     };
     const gate = () => castlePos.clone().addScaledVector(castleUp, 0.04);
@@ -148,11 +175,27 @@ export function Effects({ reduced }: { reduced: boolean }) {
           break;
         case "login_fail":
           live.pulse = 1;
-          spawn({ kind: "spark", life: 0.7, pos: gate(), up: castleUp, color: new Color("#ff5a3c"), size: 0.16, drift: 0.06 });
+          spawn({
+            kind: "spark",
+            life: 0.7,
+            pos: gate(),
+            up: castleUp,
+            color: new Color("#ff5a3c"),
+            size: 0.16,
+            drift: 0.06,
+          });
           break;
         case "login_success":
           live.flash = 1;
-          spawn({ kind: "flash", life: 1.2, pos: gate(), up: castleUp, color: new Color(palette.goldLight), size: 0.5, drift: 0 });
+          spawn({
+            kind: "flash",
+            life: 1.2,
+            pos: gate(),
+            up: castleUp,
+            color: new Color(palette.goldLight),
+            size: 0.5,
+            drift: 0,
+          });
           break;
         case "command":
           spawn({
@@ -166,19 +209,38 @@ export function Effects({ reduced }: { reduced: boolean }) {
           });
           break;
         case "tripwire":
-          spawn({ kind: "trip", life: 1.1, pos: where(e), up: where(e).normalize(), color: new Color(palette.purple), size: 0.3, drift: 0 });
+          spawn({
+            kind: "trip",
+            life: 1.1,
+            pos: where(e),
+            up: where(e).normalize(),
+            color: new Color(palette.purple),
+            size: 0.3,
+            drift: 0,
+          });
           break;
         case "classified":
           for (let i = 0; i < 4; i++) {
             const p = where(e);
             p.x += (hash01(e.event_id, i) - 0.5) * 0.04;
             p.z += (hash01(e.event_id, i + 9) - 0.5) * 0.04;
-            spawn({ kind: "puff", life: 1.6 + i * 0.2, pos: p, up: p.clone().normalize(), color: new Color(palette.gold), size: 0.12, drift: 0.08 });
+            spawn({
+              kind: "puff",
+              life: 1.6 + i * 0.2,
+              pos: p,
+              up: p.clone().normalize(),
+              color: new Color(palette.gold),
+              size: 0.12,
+              drift: 0.08,
+            });
           }
           break;
         case "session_end": {
           const h = heat.current;
-          h.push({ pos: new Vector3(...toXYZ(e.geo.lat, e.geo.lon, GLOBE_R + 0.008)), born: clock.current });
+          h.push({
+            pos: new Vector3(...toXYZ(e.geo.lat, e.geo.lon, GLOBE_R + 0.008)),
+            born: clock.current,
+          });
           if (h.length > HEAT) h.shift();
           break;
         }
@@ -200,7 +262,9 @@ export function Effects({ reduced }: { reduced: boolean }) {
       }
       s.visible = true;
       const ease = 1 - Math.pow(1 - k, 3);
-      s.position.copy(f.pos).addScaledVector(f.up, reduced ? 0 : f.drift * ease);
+      s.position
+        .copy(f.pos)
+        .addScaledVector(f.up, reduced ? 0 : f.drift * ease);
       let size = f.size,
         alpha = 1 - k;
       if (!reduced) {

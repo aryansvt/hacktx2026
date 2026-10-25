@@ -3,13 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { bus } from "@/lib/bus";
 import { useDomain } from "@/lib/store";
-import {
-  enqueue,
-  heraldCtx,
-  heraldFor,
-  remember,
-  type Queued,
-} from "./herald";
+import { enqueue, heraldCtx, heraldFor, remember, type Queued } from "./herald";
 import styles from "./Heralds.module.css";
 
 const SHOW_MS = 5000;

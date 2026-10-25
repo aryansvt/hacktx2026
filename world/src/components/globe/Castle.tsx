@@ -47,7 +47,8 @@ export function Castle({ reduced }: { reduced: boolean }) {
     beamMat.opacity =
       0.32 + (reduced ? 0 : Math.sin(t * 1.7) * 0.06) + live.flash * 0.5;
     const ringMat = ring.current.material as MeshBasicMaterial;
-    ringMat.opacity = 0.55 + (reduced ? 0 : Math.sin(t * 2.2) * 0.15) + live.flash * 0.4;
+    ringMat.opacity =
+      0.55 + (reduced ? 0 : Math.sin(t * 2.2) * 0.15) + live.flash * 0.4;
     const fm = flash.current.material as MeshBasicMaterial;
     fm.opacity = live.flash * 0.9;
     flash.current.scale.setScalar(0.3 + live.flash * 0.5);
@@ -120,22 +121,38 @@ export function Castle({ reduced }: { reduced: boolean }) {
         {/* curtain walls */}
         <mesh position={[0, 0.025, 0]}>
           <boxGeometry args={[0.15, 0.05, 0.12]} />
-          <meshStandardMaterial color={stone} emissive={palette.goldDeep} emissiveIntensity={0.35} />
+          <meshStandardMaterial
+            color={stone}
+            emissive={palette.goldDeep}
+            emissiveIntensity={0.35}
+          />
         </mesh>
         {/* gate arch */}
         <mesh position={[0, 0.018, 0.061]}>
           <boxGeometry args={[0.03, 0.036, 0.004]} />
-          <meshStandardMaterial color="#3a2a14" emissive={palette.gold} emissiveIntensity={0.9} />
+          <meshStandardMaterial
+            color="#3a2a14"
+            emissive={palette.gold}
+            emissiveIntensity={0.9}
+          />
         </mesh>
         {towers.map(([x, z, h, r, c], i) => (
           <group key={i} position={[x, 0, z]}>
             <mesh position={[0, h / 2, 0]}>
               <cylinderGeometry args={[r, r * 1.08, h, 12]} />
-              <meshStandardMaterial color={stone} emissive={palette.goldDeep} emissiveIntensity={0.3} />
+              <meshStandardMaterial
+                color={stone}
+                emissive={palette.goldDeep}
+                emissiveIntensity={0.3}
+              />
             </mesh>
             <mesh position={[0, h + r * 1.4, 0]}>
               <coneGeometry args={[r * 1.35, r * 2.8, 12]} />
-              <meshStandardMaterial color={c} emissive={c} emissiveIntensity={0.35} />
+              <meshStandardMaterial
+                color={c}
+                emissive={c}
+                emissiveIntensity={0.35}
+              />
             </mesh>
             {/* lit window */}
             <mesh position={[0, h * 0.65, r * 0.98]}>

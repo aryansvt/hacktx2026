@@ -36,10 +36,21 @@ class Settings:
     login_timeout: float = 60
     idle_timeout: float = 300
     hard_timeout: float = 1800
+    # where the sender posts events. empty url or token turns the sender off
+    core_url: str = ""
+    ingest_token: str = ""
 
     @property
     def spool_path(self) -> Path:
         return self.state_dir / "spool.jsonl"
+
+    @property
+    def cursor_path(self) -> Path:
+        return self.state_dir / "spool.cursor"
+
+    @property
+    def dead_letter_path(self) -> Path:
+        return self.state_dir / "dead_letter.jsonl"
 
     @property
     def host_key_dir(self) -> Path:
@@ -64,4 +75,6 @@ class Settings:
             login_timeout=_float(env, "TRAP_LOGIN_TIMEOUT", 60),
             idle_timeout=_float(env, "TRAP_IDLE_TIMEOUT", 300),
             hard_timeout=_float(env, "TRAP_HARD_TIMEOUT", 1800),
+            core_url=env.get("CORE_URL", "").strip().rstrip("/"),
+            ingest_token=env.get("INGEST_TOKEN", "").strip(),
         )

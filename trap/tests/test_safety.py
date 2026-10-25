@@ -16,8 +16,8 @@ BANNED_OS = {"system", "popen", "fork", "forkpty", "execl", "execle", "execlp", 
              "execve", "execvp", "execvpe", "spawnl", "spawnle", "spawnlp", "spawnlpe", "spawnv",
              "spawnve", "spawnvp", "spawnvpe", "posix_spawn", "posix_spawnp", "startfile"}
 
-# relative path -> modules it may import. the future sender and llm client go here.
-ALLOW: dict[str, set[str]] = {}
+# relative path -> modules it may import. the llm client will go here too.
+ALLOW: dict[str, set[str]] = {"sender.py": {"httpx"}}
 
 
 def _banned_module(name: str) -> bool:
@@ -78,6 +78,22 @@ def test_honeypot_never_executes_or_connects():
 )
 def test_scanner_catches(snippet):
     assert violations(snippet)
+
+
+def test_sender_is_the_only_http_module():
+    assert ALLOW == {"sender.py": {"httpx"}}
+    assert violations("import httpx", "shell/engine.py")
+    assert violations("import httpx", "sender.py") == []
+
+
+def test_sender_has_no_hardcoded_urls():
+    # the only place it can post to is CORE_URL from the env
+    tree = ast.parse((ROOT / "sender.py").read_text(encoding="utf-8"))
+    urls = [
+        n.value for n in ast.walk(tree)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and "://" in n.value
+    ]
+    assert urls == []
 
 
 def test_scanner_allows_plain_code():

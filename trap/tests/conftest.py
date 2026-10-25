@@ -18,8 +18,7 @@ def fs(base) -> Overlay:
     return Overlay(base)
 
 
-@pytest.fixture
-def no_network(monkeypatch):
+def block_network(monkeypatch) -> None:
     """any outbound connection attempt fails the test."""
 
     def boom(*args, **kwargs):
@@ -29,6 +28,17 @@ def no_network(monkeypatch):
     monkeypatch.setattr(socket.socket, "connect_ex", boom)
     monkeypatch.setattr(socket, "create_connection", boom)
     monkeypatch.setattr(socket, "getaddrinfo", boom)
+
+
+@pytest.fixture
+def no_network(monkeypatch):
+    block_network(monkeypatch)
+
+
+@pytest.fixture
+async def no_network_async(monkeypatch):
+    """same, for async tests. patched after the loop exists, since windows builds it with a socketpair."""
+    block_network(monkeypatch)
 
 
 @pytest.fixture(scope="session")

@@ -1,0 +1,38 @@
+# local dev: docker compose -f trap/docker-compose.yml up --build
+# ssh -p 2222 root@localhost (password root). events go to a backend on the host.
+services:
+  trap:
+    build:
+      context: ..
+      dockerfile: trap/Dockerfile
+    image: hacktx-trap
+    ports:
+      # the container really binds 22, same as production
+      - "2222:22"
+    environment:
+      CORE_URL: ${CORE_URL:-http://host.docker.internal:8000}
+      INGEST_TOKEN: ${INGEST_TOKEN:-dev}
+      GUEST_SSH_USER: ${GUEST_SSH_USER:-}
+      GUEST_SSH_PASSWORD: ${GUEST_SSH_PASSWORD:-}
+      TEAM_SSH_USER: ${TEAM_SSH_USER:-}
+      TEAM_SSH_PASSWORD: ${TEAM_SSH_PASSWORD:-}
+      TEAM_IPS: ${TEAM_IPS:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - trap-state:/state
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    restart: unless-stopped
+
+volumes:
+  trap-state:

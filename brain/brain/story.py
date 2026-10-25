@@ -13,7 +13,10 @@ from .session import Session, fmt_ts
 
 log = logging.getLogger(__name__)
 
-CREATURES = {"bot": "robot", "human": "orc", "agent": "alien", "unknown": "shadowy stranger"}
+CREATURES = {"bot": "clay golem", "human": "dark mage", "agent": "fae", "unknown": "shadowy stranger"}
+MALICIOUS = {"bot": "stone golem", "human": "evil witch", "agent": "cursed fae"}
+# what the creature really is, shown in parentheses after its first mention
+LABELS = {"bot": "bot", "human": "human", "agent": "AI agent", "unknown": "unknown"}
 
 # most notable first; stories mention the first two a session hit
 TECHNIQUE_NAMES = {
@@ -31,6 +34,7 @@ MAX_STORY = 700
 
 SYSTEM = """You narrate honeypot sessions as tiny storybook tales for a live 3D globe.
 Write 2 to 4 sentences of plain prose. Refer to the attacker as the creature you are given, and mention where it came from.
+The first time you name the creature, put the label you are given right after it in parentheses, like "A clay golem (bot) lumbered in from Rümlang".
 Be playful, but stay true to the facts: do not invent actions, tools or outcomes that are not listed.
 Never include IP addresses, passwords or full URLs. No titles, no lists, no quotes around the story."""
 
@@ -40,7 +44,24 @@ def creature(attacker: dict) -> str:
         return "dragon"
     if attacker.get("reputation") == "harmless":
         return "slime"
-    return CREATURES.get(attacker.get("kind", "unknown"), "shadowy stranger")
+    kind = attacker.get("kind", "unknown")
+    if attacker.get("reputation") == "malicious" and kind in MALICIOUS:
+        return MALICIOUS[kind]
+    return CREATURES.get(kind, "shadowy stranger")
+
+
+def label(attacker: dict) -> str:
+    return LABELS.get(attacker.get("kind", "unknown"), "unknown")
+
+
+def tag(text: str, who: str, what: str) -> str:
+    """make sure the first mention of the creature carries its label."""
+    if f"({what})".lower() in text.lower():
+        return text
+    m = re.search(rf"\b{re.escape(who)}\b", text, re.IGNORECASE)
+    if not m:
+        return text
+    return f"{text[:m.end()]} ({what}){text[m.end():]}"
 
 
 def place(s: Session) -> str:
@@ -66,9 +87,10 @@ def _sentences(parts: list[str]) -> str:
 
 def template_story(s: Session) -> str:
     """story without the llm. always 2-4 sentences."""
-    who = creature(s.attacker())
+    a = s.attacker()
+    who = creature(a)
     article = "an" if who[0] in "aeiou" else "a"
-    parts = [f"{article.capitalize()} {who} from {place(s)} came knocking at our gate."]
+    parts = [f"{article.capitalize()} {who} ({label(a)}) from {place(s)} came knocking at our gate."]
     users = list(dict.fromkeys(x["username"] for x in s.logins))[:3]
     if not s.logged_in:
         tries = s.login_fails
@@ -98,6 +120,7 @@ def facts(s: Session) -> str:
     a = s.attacker()
     lines = [
         f"creature: {creature(a)} (classified as {a['kind']}, confidence {a['confidence']})",
+        f"label: ({label(a)})",
         f"from: {place(s)}",
         f"visitor type: {'a guest at our hackathon table playing along' if s.source in ('guest', 'team') else 'stranger from the internet'}",
         f"how far it got: {s.status if not s.logged_in else 'inside the box'}",
@@ -123,7 +146,8 @@ class Storyteller:
     async def tell(self, s: Session) -> str:
         if self.llm is not None:
             try:
-                story = clean(await self.llm.complete(SYSTEM, facts(s)))
+                a = s.attacker()
+                story = clean(tag(await self.llm.complete(SYSTEM, facts(s)) or "", creature(a), label(a)))
                 if story:
                     return story
             except CapReached:

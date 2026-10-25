@@ -37,6 +37,8 @@ class Settings:
     serpapi_key: str = ""
     serpapi_hourly_cap: int = 50
     llm_hourly_cap: int = 200
+    # held back from wild traffic so guest and team sessions always get a story
+    llm_reserved_hourly: int = 40
     consumer: str = "brain-1"
     session_ttl_s: int = 86400
 
@@ -59,6 +61,7 @@ class Settings:
             serpapi_key=e("SERPAPI_KEY", ""),
             serpapi_hourly_cap=_int("SERPAPI_HOURLY_CAP", cls.serpapi_hourly_cap),
             llm_hourly_cap=_int("LLM_HOURLY_CAP", cls.llm_hourly_cap),
+            llm_reserved_hourly=_int("LLM_RESERVED_HOURLY", cls.llm_reserved_hourly),
             consumer=e("BRAIN_CONSUMER", cls.consumer),
             session_ttl_s=_int("BRAIN_SESSION_TTL_S", cls.session_ttl_s),
         )

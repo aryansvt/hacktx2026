@@ -31,10 +31,10 @@ curl.exe "https://api.followthebreadcrumbs.tech/sessions?limit=5"
 The judge types this on the station PC:
 
 ```
-ssh -o PubkeyAuthentication=no guest@207.148.6.48 -p 22
+ssh -o PubkeyAuthentication=no guest@<TRAP_HOST> -p 22
 ```
 
-The password is `GUEST_SSH_PASSWORD` in the team `.env`. It is never written in the repo.
+`<TRAP_HOST>` is `TRAP_HOST` in the team `.env`, and the password is `GUEST_SSH_PASSWORD` there too. Neither is written in the repo.
 
 If ssh asks to trust a new host key, type `yes`. That's the trap's real key.
 
@@ -42,7 +42,7 @@ What to suggest they try: `ls`, `cat README.md`, `whoami`, `uname -a`, `ls /opt/
 
 What they'll see on the globe within a few seconds:
 
-- a guest knight at our table in Austin (the globe draws every guest as a knight)
+- a guest knight at our table in Austin, on the globe and in the story
 - under it, brain always labels a guest login human, with "logged in at the judge station (known human)" as the first reason and the classifier's own guess from behavior as the second
 - a short story a few seconds after they type `exit`
 
@@ -109,4 +109,4 @@ sudo docker compose -f /opt/hacktx2026/infra/core/docker-compose.yml logs --tail
 sudo bash /opt/hacktx2026/infra/deploy.sh core    # redeploys main and prints health
 ```
 
-**The guest ssh login hangs or is refused.** Check the trap is up from any machine with `ssh -p 22 guest@207.148.6.48` (it should ask for a password), then see `infra/README.md` for the trap deploy.
+**The guest ssh login hangs or is refused.** Check the trap is up from any machine with `ssh -p 22 guest@<TRAP_HOST>` (it should ask for a password), then see `infra/README.md` for the trap deploy.

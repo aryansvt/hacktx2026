@@ -85,17 +85,36 @@ class GeminiLLM:
 
 
 class CappedLLM:
-    """counts every call against LLM_HOURLY_CAP before making it."""
+    """counts every call against LLM_HOURLY_CAP before making it. part of the cap is held back for our own sessions."""
 
-    def __init__(self, inner, redis, cap: int):
+    def __init__(self, inner, redis, cap: int, reserved: int = 0):
         self.inner = inner
         self.r = redis
         self.cap = cap
+        # never hold back the whole cap
+        self.reserved = max(0, min(reserved, cap - 1))
 
     async def complete(self, system: str, user: str, schema: dict | None = None) -> str:
-        if not await take(self.r, "llm", self.cap):
+        if not await take(self.r, "llm", self.cap - self.reserved):
             raise CapReached("llm hourly cap reached")
         return await self.inner.complete(system, user, schema)
+
+    def ours(self) -> "ReservedLLM":
+        """the same llm for guest and team sessions, which may also spend the held back part."""
+        return ReservedLLM(self)
+
+
+class ReservedLLM:
+    """shared pool first, then the reserve. both pools together never pass LLM_HOURLY_CAP."""
+
+    def __init__(self, capped: CappedLLM):
+        self.c = capped
+
+    async def complete(self, system: str, user: str, schema: dict | None = None) -> str:
+        c = self.c
+        if not await take(c.r, "llm", c.cap - c.reserved) and not await take(c.r, "llm_reserved", c.reserved):
+            raise CapReached("llm hourly cap reached, reserve too")
+        return await c.inner.complete(system, user, schema)
 
 
 def make_llm(settings, redis):
@@ -107,4 +126,4 @@ def make_llm(settings, redis):
     else:
         log.warning("no llm key for provider %r; dossiers and stories use templates", settings.llm_provider)
         return None
-    return CappedLLM(inner, redis, settings.llm_hourly_cap)
+    return CappedLLM(inner, redis, settings.llm_hourly_cap, settings.llm_reserved_hourly)

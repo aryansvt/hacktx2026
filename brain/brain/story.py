@@ -20,7 +20,11 @@ CREATURES = {"bot": "clay golem", "human": "dark mage", "agent": "fae", "unknown
 MALICIOUS = {"bot": "stone golem", "human": "evil witch", "agent": "cursed fae"}
 # what the creature really is, shown in parentheses after its first mention
 LABELS = {"bot": "bot", "human": "human", "agent": "AI agent", "unknown": "unknown"}
-ALL_CREATURES = set(CREATURES.values()) | set(MALICIOUS.values()) | {"slime", "dragon"}
+# judges at our table, drawn as knights on the globe too
+GUEST = "guest knight"
+ALL_CREATURES = set(CREATURES.values()) | set(MALICIOUS.values()) | {"slime", "dragon", GUEST}
+# our own sessions, which may spend the reserved llm budget
+OURS = ("guest", "team")
 
 # most notable first; stories mention the first two a session hit
 TECHNIQUE_NAMES = {
@@ -70,7 +74,9 @@ Be playful, but stay true to the facts: do not invent actions, tools or outcomes
 Never include IP addresses, passwords or full URLs. No titles, no lists, no quotes around the story."""
 
 
-def creature(attacker: dict) -> str:
+def creature(attacker: dict, source: str | None = None) -> str:
+    if source == "guest":
+        return GUEST
     if attacker.get("threat") == "critical":
         return "dragon"
     if attacker.get("reputation") == "harmless":
@@ -119,7 +125,7 @@ def _sentences(parts: list[str]) -> str:
 def template_story(s: Session) -> str:
     """story without the llm. always 2-4 sentences."""
     a = s.attacker()
-    who = creature(a)
+    who = creature(a, s.source)
     article = "an" if who[0] in "aeiou" else "a"
     parts = [f"{article.capitalize()} {who} ({label(a)}) from {place(s)} came knocking at our gate."]
     users = list(dict.fromkeys(x["username"] for x in s.logins))[:3]
@@ -173,7 +179,7 @@ def notable_commands(s: Session) -> list[str]:
 def facts(s: Session) -> str:
     a = s.attacker()
     lines = [
-        f"creature: {creature(a)} (classified as {a['kind']}, confidence {a['confidence']})",
+        f"creature: {creature(a, s.source)} (classified as {a['kind']}, confidence {a['confidence']})",
         f"label: ({label(a)})",
         f"from: {place(s)}",
         f"visitor type: {'a guest at our hackathon table playing along' if s.source in ('guest', 'team') else 'stranger from the internet'}",
@@ -203,7 +209,7 @@ def _safe(line: str, s: Session) -> str:
 def problem(text: str, s: Session) -> str | None:
     """why a story can't go out: a wrong creature or label, or a claim the facts contradict."""
     a = s.attacker()
-    who, what = creature(a), label(a)
+    who, what = creature(a, s.source), label(a)
     low = text.lower()
     if not re.search(rf"\b{re.escape(who)}\b", low):
         return f"it never names the {who}"
@@ -225,18 +231,22 @@ def problem(text: str, s: Session) -> str | None:
 
 
 class Storyteller:
-    def __init__(self, llm=None):
+    def __init__(self, llm=None, reserved=None):
         self.llm = llm
+        # same llm, but guest and team stories may also spend the held back budget
+        self.reserved = reserved or llm
 
     async def tell(self, s: Session) -> str:
-        if self.llm is None:
+        llm = self.reserved if s.source in OURS else self.llm
+        # login-only wild scans are most of the traffic; the template keeps the budget for real visits
+        if llm is None or (s.source == "wild" and not s.logged_in):
             return template_story(s)
         a = s.attacker()
         user = facts(s)
         # one retry that says what was wrong, then the template
         for _ in range(2):
             try:
-                story = clean(tag(await self.llm.complete(SYSTEM, user) or "", creature(a), label(a)))
+                story = clean(tag(await llm.complete(SYSTEM, user) or "", creature(a, s.source), label(a)))
             except CapReached:
                 log.info("llm cap reached, template story")
                 break

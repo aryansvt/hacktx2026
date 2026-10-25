@@ -1,19 +1,7 @@
 "use client";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import {
-  ArrowLeft,
-  BookOpen,
-  Maximize,
-  X,
-  Filter,
-  Bot,
-  Flame,
-  Ghost,
-  Sparkles,
-  User,
-} from "lucide-react";
+import { ArrowLeft, X, Bot, Flame, Ghost, Sparkles, User } from "lucide-react";
 import { useDomain } from "@/lib/store";
 import { useView, type Subview } from "@/lib/view-store";
 import { appearance, eventText, location } from "@/lib/domain";
@@ -23,30 +11,20 @@ import { useDataMode, type DataMode } from "@/lib/data-mode";
 import type {
   DataAdapter,
   SessionResponse,
-  AttackEvent,
 } from "@/lib/contracts";
 import styles from "./live.module.css";
 import Timeline from "./Timeline";
+import TopBar from "@/components/chrome/TopBar";
+import Chronicle from "@/components/chrome/Chronicle";
+import Heralds from "@/components/chrome/Heralds";
+import Footer from "@/components/chrome/Footer";
 const World = dynamic(() => import("./World"), {
   ssr: false,
   loading: () => null,
 });
-const disclosure =
-  "This is a research honeypot built for HackTX 2026. Connection data is anonymized and deleted after the event.";
 function elapsed(a: string, b: string) {
   const s = Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 1000));
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-}
-function age(e: AttackEvent, latest: string) {
-  const seconds = Math.max(
-    0,
-    Math.round((Date.parse(latest) - Date.parse(e.timestamp)) / 1000),
-  );
-  return seconds < 2
-    ? "Now"
-    : seconds < 60
-      ? `${seconds}s ago`
-      : `${Math.floor(seconds / 60)}m ago`;
 }
 function Inspection({ adapter }: { adapter: DataAdapter | null }) {
   const view = useView(),
@@ -317,15 +295,10 @@ function Inspection({ adapter }: { adapter: DataAdapter | null }) {
   );
 }
 export default function LiveShell() {
-  const data = useDomain((s) => s.data),
-    ready = useDomain((s) => s.ready),
-    view = useView(),
-    reduced = useReducedMotion();
+  const view = useView();
   const [adapter, setAdapter] = useState<DataAdapter | null>(null);
   const worldRef = useRef<HTMLDivElement>(null),
-    lineRef = useRef<SVGPolylineElement>(null),
-    feedRef = useRef<HTMLDivElement>(null);
-  const priorSurface = useRef(view.surface);
+    lineRef = useRef<SVGPolylineElement>(null);
   const { mode, choose, toggle } = useDataMode();
   const conn = useConn((s) => s.conn);
   useEffect(() => {
@@ -363,17 +336,6 @@ export default function LiveShell() {
       useDomain.getState().reset();
     };
   }, [mode]);
-  useEffect(() => {
-    if (view.surface === "activity") {
-      if (feedRef.current)
-        feedRef.current.scrollTop = useView.getState().feedScroll;
-      if (priorSurface.current === "creature")
-        document.getElementById(view.focusId ?? "feed-heading")?.focus();
-      else document.getElementById("feed-heading")?.focus();
-    } else if (view.surface === "none" && priorSurface.current !== "none")
-      document.getElementById("latest-activity")?.focus();
-    priorSurface.current = view.surface;
-  }, [view.surface, view.focusId]);
   const project = useCallback((x: number, y: number) => {
     const r = worldRef.current?.getBoundingClientRect();
     const popup = document
@@ -385,8 +347,6 @@ export default function LiveShell() {
         `${popup.right},${popup.top + popup.height / 2} ${popup.right + 80},${popup.top + popup.height / 2} ${r.left + x},${r.top + y}`,
       );
   }, []);
-  const events = data.recent.map((id) => data.events[id]);
-  const latest = events[0];
   const shifted = view.surface !== "none";
   return (
     <main
@@ -401,7 +361,7 @@ export default function LiveShell() {
     >
       <div
         ref={worldRef}
-        className={`${styles.world} ${shifted ? (view.surface === "creature" && view.origin === "map" ? styles.direct : styles.shifted) : ""}`}
+        className={`${styles.world} ${shifted ? styles.shifted : ""}`}
         aria-label="Interactive attacker globe"
       >
         <World onProjection={project} />
@@ -411,62 +371,17 @@ export default function LiveShell() {
           <polyline
             ref={lineRef}
             fill="none"
-            stroke="var(--blue)"
-            strokeWidth="1"
+            stroke="var(--gold)"
+            strokeWidth="1.2"
             strokeDasharray="3 4"
           />
         </svg>
       )}
-      <header className={styles.topbar}>
-        <a
-          href="/live"
-          className={styles.brand}
-          aria-label="Breadcrumbs, every attacker leaves a trail"
-        >
-          Breadcrumbs
-        </a>
-        <div
-          className={styles.stats}
-          aria-label="Wild traffic totals, mock visits excluded"
-        >
-          <span>
-            <strong>Attacks</strong>
-            {data.stats.total_sessions}
-          </span>
-          <span>
-            <strong>Active</strong>
-            {data.stats.active_now}
-          </span>
-          <span>
-            <strong>Countries</strong>
-            {data.stats.countries}
-          </span>
-          <span title="Simulated successful entries to the honeypot">
-            <strong>Breaches</strong>
-            {data.stats.breaches}
-          </span>
-        </div>
-        <div className={styles.tools}>
-          <button
-            className={styles.icon}
-            disabled
-            aria-label="Hide Controls, available in milestone 2"
-            title="Hide Controls: available in milestone 2"
-          >
-            <Maximize />
-          </button>
-          <button
-            className={styles.icon}
-            disabled
-            aria-label="Creature Key, available in milestone 2"
-            title="Creature Key: available in milestone 2"
-          >
-            <BookOpen />
-          </button>
-        </div>
-      </header>
+      <TopBar />
+      <Heralds />
+      <Chronicle />
       {mode === "live" && conn === "reconnecting" && (
-        <p className={styles.mode} role="status">
+        <p className={styles.pill} role="status">
           Reconnecting to the live feed…
         </p>
       )}
@@ -492,107 +407,14 @@ export default function LiveShell() {
       )}
       <p className={`${styles.hint} ${shifted ? styles.shiftHint : ""}`}>
         {view.surface === "creature"
-          ? "Selected creature stays visible"
+          ? "Drag to look around · Esc to close"
           : view.surface === "activity"
-            ? "Select an event to inspect its creature"
+            ? "Pick an event to meet its creature"
             : "Drag to explore · click a creature to inspect"}
       </p>
-      {view.surface === "none" && (
-        <button
-          id="latest-activity"
-          className={styles.latest}
-          onClick={view.openActivity}
-        >
-          <strong>
-            {latest
-              ? `Latest: ${appearance(latest.attacker).name} ${eventText(latest).toLowerCase()}`
-              : "Latest activity"}
-          </strong>
-          <span>
-            {latest
-              ? `${latest.geo.city ?? "Unknown city"} · ${age(latest, latest.timestamp)}${mode === "mock" ? " · mock" : ""}`
-              : "Waiting for the next visitor…"}
-          </span>
-          <span>Click to view all activity</span>
-        </button>
-      )}
-      {view.surface === "activity" && (
-        <motion.section
-          className={`${styles.panel} ${styles.feed}`}
-          initial={{ opacity: reduced ? 1 : 0.8 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: reduced ? 0 : 0.16 }}
-          aria-label="Activity"
-        >
-          <h2 id="feed-heading" tabIndex={-1}>
-            Live Feed
-          </h2>
-          <p className={styles.subtitle}>Newest first · select to fly there</p>
-          <button
-            className={`${styles.icon} ${styles.filterButton}`}
-            disabled
-            aria-label="Filter Activity, available in milestone 2"
-            title="Filters: available in milestone 2"
-          >
-            <Filter />
-          </button>
-          <button
-            className={`${styles.icon} ${styles.panelClose}`}
-            aria-label="Close Activity"
-            onClick={view.close}
-          >
-            <X />
-          </button>
-          <div
-            ref={feedRef}
-            className={styles.feedList}
-            onScroll={(e) =>
-              useView.setState({ feedScroll: e.currentTarget.scrollTop })
-            }
-          >
-            {events.map((e) => (
-              <button
-                id={`event-${e.event_id}`}
-                key={e.event_id}
-                className={styles.row}
-                onClick={() => {
-                  if (e.attacker.ip_hash)
-                    view.select(
-                      e.attacker.ip_hash,
-                      e.session_id,
-                      "activity",
-                      `event-${e.event_id}`,
-                    );
-                }}
-                disabled={!e.attacker.ip_hash}
-              >
-                <span>
-                  <span>
-                    {appearance(e.attacker).name} ·{" "}
-                    {e.geo.city ?? "Unknown city"}
-                  </span>
-                  <span>
-                    {eventText(e)}
-                    {e.attacker.family ? ` · ${e.attacker.family}` : ""}
-                  </span>
-                  <small>Simulated</small>
-                </span>
-                <time>{age(e, latest?.timestamp ?? e.timestamp)}</time>
-              </button>
-            ))}
-            {!events.length && (
-              <p className={styles.empty}>
-                {ready
-                  ? "No encounters yet."
-                  : "Waiting for the first visitor."}
-              </p>
-            )}
-          </div>
-        </motion.section>
-      )}
       {view.surface === "creature" && <Inspection adapter={adapter} />}
       <Timeline />
-      <footer className={styles.disclosure}>{disclosure}</footer>
+      <Footer />
     </main>
   );
 }

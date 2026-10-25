@@ -214,7 +214,7 @@ class _Expander:
 class Engine:
     def __init__(self) -> None:
         # import for the registration side effects
-        from .commands import files, system, text  # noqa: F401
+        from .commands import files, net, pkg, system, text  # noqa: F401
 
     def new_state(self, user: str = "root", tty: bool = True, base: BaseFS | None = None, **kw) -> ShellState:
         fs = Overlay(base or load_base())

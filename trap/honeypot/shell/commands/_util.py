@@ -70,6 +70,24 @@ def uptime_seconds(ctx: Ctx) -> float:
     return max(60.0, (now() - boot_time(ctx)).total_seconds())
 
 
+def stopped_pids(ctx: Ctx) -> set[int]:
+    """pids that are gone: killed, or owned by a service someone stopped. ps, ss, netstat and apt all use this."""
+    gone = set(ctx.state.killed)
+    for name, svc in ctx.system["services"].items():
+        if svc and not ctx.state.services.get(name, svc["active"]).startswith(("active", "activating")):
+            gone.update(svc.get("pids", []))
+    return gone
+
+
+def proc_cmd(ctx: Ctx, pid: int) -> str:
+    return next((p[10] for p in ctx.system["processes"] if p[1] == pid), "")
+
+
+def short_time(dt: datetime) -> str:
+    """'Sun Oct 25 10:12', the way last prints it."""
+    return f"{DAYS[dt.weekday()]} {MONTHS[dt.month - 1]} {dt.day:>2} {dt.hour:02d}:{dt.minute:02d}"
+
+
 def load_avg() -> tuple[float, float, float]:
     # small, slowly drifting numbers so repeated calls look alive
     t = time.time()

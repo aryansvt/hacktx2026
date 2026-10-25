@@ -6,6 +6,7 @@
  "kernel_build": "#115-Ubuntu SMP Mon Apr 15 09:52:04 UTC 2024",
  "ip": "10.0.4.17",
  "gateway": "10.0.4.1",
+ "gateway_mac": "fe:00:05:9a:2c:11",
  "mac": "02:4f:9c:1a:7e:33",
  "ip6_link": "fe80::4f:9cff:fe1a:7e33",
  "docker_ip": "172.17.0.1",
@@ -264,6 +265,32 @@
   ],
   [
    "root",
+   1215,
+   0.0,
+   0.1,
+   1155240,
+   3964,
+   "?",
+   "Sl",
+   "Oct06",
+   "0:02",
+   "/usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 5432 -container-ip 172.18.0.2 -container-port 5432"
+  ],
+  [
+   "root",
+   1270,
+   0.0,
+   0.1,
+   1155240,
+   3912,
+   "?",
+   "Sl",
+   "Oct06",
+   "0:02",
+   "/usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 6379 -container-ip 172.18.0.3 -container-port 6379"
+  ],
+  [
+   "root",
    1034,
    0.0,
    0.0,
@@ -393,6 +420,19 @@
    "/usr/bin/containerd-shim-runc-v2 -namespace moby -id 3f1c9a2b7e44 -address /run/containerd/containerd.sock"
   ],
   [
+   "root",
+   48660,
+   0.0,
+   0.1,
+   1155496,
+   4020,
+   "?",
+   "Sl",
+   "Oct24",
+   "0:00",
+   "/usr/bin/docker-proxy -proto tcp -host-ip 127.0.0.1 -host-port 8000 -container-ip 172.18.0.4 -container-port 8000"
+  ],
+  [
    "1000",
    48672,
    0.4,
@@ -443,6 +483,19 @@
    "Oct06",
    "0:00",
    "/sbin/agetty -o -p -- \\u --noclear tty1 linux"
+  ],
+  [
+   "root",
+   2381,
+   0.3,
+   1.9,
+   113244,
+   76512,
+   "?",
+   "S",
+   "Oct24",
+   "0:46",
+   "/usr/bin/python3 /usr/bin/unattended-upgrade"
   ]
  ],
  "services": {
@@ -454,7 +507,10 @@
    "main": "sshd",
    "tasks": 1,
    "memory": "6.1M",
-   "cmd": "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups"
+   "cmd": "sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups",
+   "pids": [
+    812
+   ]
   },
   "nginx": {
    "desc": "A high performance web server and a reverse proxy server",
@@ -464,7 +520,12 @@
    "main": "nginx",
    "tasks": 3,
    "memory": "9.8M",
-   "cmd": "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;"
+   "cmd": "nginx: master process /usr/sbin/nginx -g daemon on; master_process on;",
+   "pids": [
+    1034,
+    1037,
+    1038
+   ]
   },
   "docker": {
    "desc": "Docker Application Container Engine",
@@ -474,7 +535,13 @@
    "main": "dockerd",
    "tasks": 24,
    "memory": "88.4M",
-   "cmd": "/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock"
+   "cmd": "/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock",
+   "pids": [
+    911,
+    1215,
+    1270,
+    48660
+   ]
   },
   "containerd": {
    "desc": "containerd container runtime",
@@ -484,7 +551,13 @@
    "main": "containerd",
    "tasks": 31,
    "memory": "312.6M",
-   "cmd": "/usr/bin/containerd"
+   "cmd": "/usr/bin/containerd",
+   "pids": [
+    905,
+    1201,
+    1260,
+    48650
+   ]
   },
   "cron": {
    "desc": "Regular background program processing daemon",
@@ -494,7 +567,10 @@
    "main": "cron",
    "tasks": 1,
    "memory": "1.1M",
-   "cmd": "/usr/sbin/cron -f -P"
+   "cmd": "/usr/sbin/cron -f -P",
+   "pids": [
+    601
+   ]
   },
   "rsyslog": {
    "desc": "System Logging Service",
@@ -504,7 +580,10 @@
    "main": "rsyslogd",
    "tasks": 4,
    "memory": "3.2M",
-   "cmd": "/usr/sbin/rsyslogd -n -iNONE"
+   "cmd": "/usr/sbin/rsyslogd -n -iNONE",
+   "pids": [
+    610
+   ]
   },
   "qf-app": {
    "desc": "Quillfern shop (docker compose)",
@@ -514,7 +593,8 @@
    "main": "docker",
    "tasks": 0,
    "memory": "0B",
-   "cmd": ""
+   "cmd": "",
+   "pids": []
   },
   "systemd-resolved": {
    "desc": "Network Name Resolution",
@@ -524,7 +604,23 @@
    "main": "systemd-resolve",
    "tasks": 1,
    "memory": "6.0M",
-   "cmd": "/lib/systemd/systemd-resolved"
+   "cmd": "/lib/systemd/systemd-resolved",
+   "pids": [
+    514
+   ]
+  },
+  "apt-daily-upgrade": {
+   "desc": "Daily apt upgrade and clean activities",
+   "unit": "/lib/systemd/system/apt-daily-upgrade.service",
+   "active": "activating (start)",
+   "pid": 2381,
+   "main": "unattended-upgr",
+   "tasks": 1,
+   "memory": "74.9M",
+   "cmd": "/usr/bin/python3 /usr/bin/unattended-upgrade",
+   "pids": [
+    2381
+   ]
   },
   "mysql": null,
   "apache2": null
@@ -591,6 +687,12 @@
    "command line tool for transferring data with URL syntax"
   ],
   [
+   "dpkg",
+   "1.21.1ubuntu2.3",
+   "amd64",
+   "Debian package management system"
+  ],
+  [
    "docker-compose-v2",
    "2.24.6+ds1-0ubuntu1~22.04.1",
    "amd64",
@@ -621,10 +723,22 @@
    "interactive processes viewer"
   ],
   [
+   "iproute2",
+   "5.15.0-1ubuntu2",
+   "amd64",
+   "networking and traffic control tools"
+  ],
+  [
    "linux-image-5.15.0-105-generic",
    "5.15.0-105.115",
    "amd64",
    "Signed kernel image generic"
+  ],
+  [
+   "mount",
+   "2.37.2-4ubuntu3.4",
+   "amd64",
+   "tools for mounting and manipulating filesystems"
   ],
   [
    "nano",
@@ -663,6 +777,12 @@
    "front-end programs for PostgreSQL 14"
   ],
   [
+   "procps",
+   "2:3.3.17-6ubuntu2.1",
+   "amd64",
+   "/proc file system utilities"
+  ],
+  [
    "python3",
    "3.10.6-1~22.04",
    "amd64",
@@ -697,6 +817,18 @@
    "1.34+dfsg-1ubuntu0.1.22.04.2",
    "amd64",
    "GNU version of the tar archiving utility"
+  ],
+  [
+   "unattended-upgrades",
+   "2.8ubuntu1",
+   "all",
+   "automatic installation of security upgrades"
+  ],
+  [
+   "util-linux",
+   "2.37.2-4ubuntu3.4",
+   "amd64",
+   "miscellaneous system utilities"
   ],
   [
    "vim",
@@ -858,20 +990,454 @@
    "(00:25)"
   ],
   [
-   "ubuntu",
-   "pts/0",
-   "192.0.2.18",
-   "Thu Oct  1 06:28",
-   "07:10",
-   "(00:42)"
-  ],
-  [
    "reboot",
    "system boot",
    "5.15.0-105-gener",
    "Tue Oct  6 04:12",
    "still running",
    ""
+  ],
+  [
+   "ubuntu",
+   "pts/0",
+   "192.0.2.18",
+   "Thu Oct  1 06:28",
+   "07:10",
+   "(00:42)"
+  ]
+ ],
+ "wtmp_begins": "Thu Oct  1 06:28:11 2026",
+ "interfaces": [
+  {
+   "name": "lo",
+   "index": 1,
+   "flags": [
+    "LOOPBACK",
+    "UP",
+    "LOWER_UP"
+   ],
+   "mtu": 65536,
+   "qdisc": "noqueue",
+   "state": "UNKNOWN",
+   "qlen": 1000,
+   "mac": "00:00:00:00:00:00",
+   "inet": [
+    [
+     "127.0.0.1",
+     8,
+     "host"
+    ]
+   ],
+   "inet6": [
+    [
+     "::1",
+     128,
+     "host"
+    ]
+   ],
+   "rx": [
+    48211,
+    5021337
+   ],
+   "tx": [
+    48211,
+    5021337
+   ]
+  },
+  {
+   "name": "eth0",
+   "index": 2,
+   "flags": [
+    "BROADCAST",
+    "MULTICAST",
+    "UP",
+    "LOWER_UP"
+   ],
+   "mtu": 1500,
+   "qdisc": "fq_codel",
+   "state": "UP",
+   "qlen": 1000,
+   "mac": "02:4f:9c:1a:7e:33",
+   "altname": "enp1s0",
+   "dynamic": true,
+   "inet": [
+    [
+     "10.0.4.17",
+     24,
+     "global"
+    ]
+   ],
+   "inet6": [
+    [
+     "fe80::4f:9cff:fe1a:7e33",
+     64,
+     "link"
+    ]
+   ],
+   "rx": [
+    1893442,
+    1288133021
+   ],
+   "tx": [
+    1210334,
+    402331877
+   ]
+  },
+  {
+   "name": "docker0",
+   "index": 3,
+   "flags": [
+    "NO-CARRIER",
+    "BROADCAST",
+    "MULTICAST",
+    "UP"
+   ],
+   "mtu": 1500,
+   "qdisc": "noqueue",
+   "state": "DOWN",
+   "qlen": 0,
+   "mac": "02:42:5e:91:c3:0a",
+   "inet": [
+    [
+     "172.17.0.1",
+     16,
+     "global"
+    ]
+   ],
+   "inet6": [],
+   "rx": [
+    0,
+    0
+   ],
+   "tx": [
+    0,
+    0
+   ]
+  },
+  {
+   "name": "br-3c5e9a1f2b7d",
+   "index": 4,
+   "flags": [
+    "BROADCAST",
+    "MULTICAST",
+    "UP",
+    "LOWER_UP"
+   ],
+   "mtu": 1500,
+   "qdisc": "noqueue",
+   "state": "UP",
+   "qlen": 0,
+   "mac": "02:42:8a:17:d4:66",
+   "inet": [
+    [
+     "172.18.0.1",
+     16,
+     "global"
+    ]
+   ],
+   "inet6": [
+    [
+     "fe80::42:8aff:fe17:d466",
+     64,
+     "link"
+    ]
+   ],
+   "rx": [
+    402117,
+    61873120
+   ],
+   "tx": [
+    455902,
+    198402331
+   ]
+  },
+  {
+   "name": "veth5e1c0a2",
+   "index": 6,
+   "peer": 5,
+   "netns": 0,
+   "master": "br-3c5e9a1f2b7d",
+   "flags": [
+    "BROADCAST",
+    "MULTICAST",
+    "UP",
+    "LOWER_UP"
+   ],
+   "mtu": 1500,
+   "qdisc": "noqueue",
+   "state": "UP",
+   "qlen": 0,
+   "mac": "6e:1d:4a:93:0b:2f",
+   "inet": [],
+   "inet6": [
+    [
+     "fe80::6c1d:4aff:fe93:b2f",
+     64,
+     "link"
+    ]
+   ],
+   "rx": [
+    130551,
+    20118734
+   ],
+   "tx": [
+    141022,
+    31201876
+   ]
+  },
+  {
+   "name": "veth9b3f7d1",
+   "index": 8,
+   "peer": 7,
+   "netns": 1,
+   "master": "br-3c5e9a1f2b7d",
+   "flags": [
+    "BROADCAST",
+    "MULTICAST",
+    "UP",
+    "LOWER_UP"
+   ],
+   "mtu": 1500,
+   "qdisc": "noqueue",
+   "state": "UP",
+   "qlen": 0,
+   "mac": "a2:7c:19:e0:44:d1",
+   "inet": [],
+   "inet6": [
+    [
+     "fe80::a07c:19ff:fee0:44d1",
+     64,
+     "link"
+    ]
+   ],
+   "rx": [
+    88213,
+    9120334
+   ],
+   "tx": [
+    90118,
+    12008431
+   ]
+  },
+  {
+   "name": "vethc04a8e6",
+   "index": 10,
+   "peer": 9,
+   "netns": 2,
+   "master": "br-3c5e9a1f2b7d",
+   "flags": [
+    "BROADCAST",
+    "MULTICAST",
+    "UP",
+    "LOWER_UP"
+   ],
+   "mtu": 1500,
+   "qdisc": "noqueue",
+   "state": "UP",
+   "qlen": 0,
+   "mac": "3a:f2:61:0c:9d:57",
+   "inet": [],
+   "inet6": [
+    [
+     "fe80::38f2:61ff:fe0c:9d57",
+     64,
+     "link"
+    ]
+   ],
+   "rx": [
+    183353,
+    32634052
+   ],
+   "tx": [
+    224762,
+    155192024
+   ]
+  }
+ ],
+ "routes": [
+  {
+   "dst": "default",
+   "gw": "10.0.4.1",
+   "dev": "eth0",
+   "proto": "dhcp",
+   "scope": "",
+   "src": "10.0.4.17",
+   "metric": 100
+  },
+  {
+   "dst": "10.0.4.0/24",
+   "gw": "",
+   "dev": "eth0",
+   "proto": "kernel",
+   "scope": "link",
+   "src": "10.0.4.17",
+   "metric": 100
+  },
+  {
+   "dst": "10.0.4.1",
+   "gw": "",
+   "dev": "eth0",
+   "proto": "dhcp",
+   "scope": "link",
+   "src": "10.0.4.17",
+   "metric": 100
+  },
+  {
+   "dst": "172.17.0.0/16",
+   "gw": "",
+   "dev": "docker0",
+   "proto": "kernel",
+   "scope": "link",
+   "src": "172.17.0.1",
+   "linkdown": true
+  },
+  {
+   "dst": "172.18.0.0/16",
+   "gw": "",
+   "dev": "br-3c5e9a1f2b7d",
+   "proto": "kernel",
+   "scope": "link",
+   "src": "172.18.0.1"
+  }
+ ],
+ "mounts": [
+  [
+   "sysfs",
+   "/sys",
+   "sysfs",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "proc",
+   "/proc",
+   "proc",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "udev",
+   "/dev",
+   "devtmpfs",
+   "rw,nosuid,relatime,size=1966476k,nr_inodes=491619,mode=755,inode64"
+  ],
+  [
+   "devpts",
+   "/dev/pts",
+   "devpts",
+   "rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=000"
+  ],
+  [
+   "tmpfs",
+   "/run",
+   "tmpfs",
+   "rw,nosuid,nodev,noexec,relatime,size=402432k,mode=755,inode64"
+  ],
+  [
+   "/dev/vda1",
+   "/",
+   "ext4",
+   "rw,relatime,discard,errors=remount-ro"
+  ],
+  [
+   "securityfs",
+   "/sys/kernel/security",
+   "securityfs",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "tmpfs",
+   "/dev/shm",
+   "tmpfs",
+   "rw,nosuid,nodev,inode64"
+  ],
+  [
+   "tmpfs",
+   "/run/lock",
+   "tmpfs",
+   "rw,nosuid,nodev,noexec,relatime,size=5120k,inode64"
+  ],
+  [
+   "cgroup2",
+   "/sys/fs/cgroup",
+   "cgroup2",
+   "rw,nosuid,nodev,noexec,relatime,nsdelegate,memory_recursiveprot"
+  ],
+  [
+   "pstore",
+   "/sys/fs/pstore",
+   "pstore",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "bpf",
+   "/sys/fs/bpf",
+   "bpf",
+   "rw,nosuid,nodev,noexec,relatime,mode=700"
+  ],
+  [
+   "systemd-1",
+   "/proc/sys/fs/binfmt_misc",
+   "autofs",
+   "rw,relatime,fd=29,pgrp=1,timeout=0,minproto=5,maxproto=5,direct,pipe_ino=15573"
+  ],
+  [
+   "mqueue",
+   "/dev/mqueue",
+   "mqueue",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "debugfs",
+   "/sys/kernel/debug",
+   "debugfs",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "tracefs",
+   "/sys/kernel/tracing",
+   "tracefs",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "fusectl",
+   "/sys/fs/fuse/connections",
+   "fusectl",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "configfs",
+   "/sys/kernel/config",
+   "configfs",
+   "rw,nosuid,nodev,noexec,relatime"
+  ],
+  [
+   "/dev/vda15",
+   "/boot/efi",
+   "vfat",
+   "rw,relatime,fmask=0077,dmask=0077,codepage=437,iocharset=iso8859-1,shortname=mixed,errors=remount-ro"
+  ],
+  [
+   "overlay",
+   "/var/lib/docker/overlay2/7c1e0b9d4f2a6e83b5d1c0a9f7e6d5c4b3a2918070f6e5d4c3b2a19087f6e5d4/merged",
+   "overlay",
+   "rw,relatime,lowerdir=/var/lib/docker/overlay2/l/V2KQ9D3TB7F1Z6WQ:/var/lib/docker/overlay2/l/QX3M7ZT2C5WJ4,upperdir=/var/lib/docker/overlay2/7c1e0b9d4f2a6e83b5d1c0a9f7e6d5c4b3a2918070f6e5d4c3b2a19087f6e5d4/diff,workdir=/var/lib/docker/overlay2/7c1e0b9d4f2a6e83b5d1c0a9f7e6d5c4b3a2918070f6e5d4c3b2a19087f6e5d4/work,nouserxattr"
+  ],
+  [
+   "overlay",
+   "/var/lib/docker/overlay2/2b9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1/merged",
+   "overlay",
+   "rw,relatime,lowerdir=/var/lib/docker/overlay2/l/HU4N2XKJ8RM0C3PE:/var/lib/docker/overlay2/l/QX3M7ZT2C5WJ4,upperdir=/var/lib/docker/overlay2/2b9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1/diff,workdir=/var/lib/docker/overlay2/2b9f8e7d6c5b4a39281706f5e4d3c2b1a09f8e7d6c5b4a39281706f5e4d3c2b1/work,nouserxattr"
+  ],
+  [
+   "overlay",
+   "/var/lib/docker/overlay2/e4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3928170605/merged",
+   "overlay",
+   "rw,relatime,lowerdir=/var/lib/docker/overlay2/l/B8YT5LQW1ZN7D4MA:/var/lib/docker/overlay2/l/QX3M7ZT2C5WJ4,upperdir=/var/lib/docker/overlay2/e4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3928170605/diff,workdir=/var/lib/docker/overlay2/e4d3c2b1a0f9e8d7c6b5a4938271605f4e3d2c1b0a9f8e7d6c5b4a3928170605/work,nouserxattr"
+  ],
+  [
+   "tmpfs",
+   "/run/user/0",
+   "tmpfs",
+   "rw,nosuid,nodev,relatime,size=401508k,nr_inodes=100377,mode=700,inode64"
   ]
  ]
 }

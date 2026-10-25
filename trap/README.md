@@ -26,6 +26,19 @@ Every session lands in `state/spool.jsonl` as raw events, one JSON object per li
 
 Without `CORE_URL` and `INGEST_TOKEN` the sender stays off and events just pile up in the spool. Without `ANTHROPIC_API_KEY` the LLM fallback stays off and unmodelled commands print nothing.
 
+## Rules engine
+
+`honeypot/shell/` parses each line and answers it with Python functions over the virtual fs and `honeypot/data/system.json`. Nothing is ever run on the host. `seed/build_seed.py` writes both data files; run it after editing the seed (a test fails if the committed json is stale).
+
+Commands that report on the box all read the same facts, so they agree with each other:
+
+- `ps`, `top`, `systemctl`, `service`: processes and services. Each service lists the pids it owns.
+- `ss`, `netstat` (`-tulpna`, `-r`): listeners from `listen`, plus the session's own SSH connection from the same address `w` and `who` show. A listener is gone when its process is killed or its service is stopped, the same rule `ps` uses.
+- `ip a|r|link|neigh`, `ifconfig`: `interfaces` and `routes`. Changes get `Operation not permitted`.
+- `dpkg -l|-s`, `apt list|search|show`: `packages`. `apt-get install` and `dpkg -i` hit the dpkg lock held by the stuck `unattended-upgrade` (pid 2381, in `ps`, from `apt-daily-upgrade.service` in `systemctl`). Stop that service and installs say "already the newest version" or "Unable to locate package". `apt-get update` can't resolve the mirrors.
+- `last`: the session's own login (interactive only, exec channels don't write wtmp), then `last` and the boot from `boot_time`.
+- `mount`: `mounts`, which holds every `df` row plus the pseudo filesystems and one overlay per container. Mounting anything fails.
+
 ## LLM fallback
 
 The rules engine answers what it models. A command that's installed on the fake box (it's on `PATH` in the virtual fs) but has no rule goes to the LLM instead. A command that isn't installed still gets `command not found`, so the fs stays the source of truth.

@@ -76,3 +76,14 @@ def test_latest_reasons_takes_the_last_classified():
               {"type": "classified", "detail": {"reasons": ["b", "c"]}}]
     assert common.latest_reasons(events) == ["b", "c"]
     assert common.latest_reasons([]) == []
+
+
+@pytest.mark.parametrize("out,line,want", [
+    ("ls\nREADME.md\n", "ls", "README.md\n"),
+    ("cat a\r\nb\n", "cat a", "b\n"),
+    ("echo aaaa\nbbbb\nout\n", "echo aaaabbbb", "out\n"),  # wrapped echo
+    ("README.md\n", "ls", "README.md\n"),  # no pty, no echo
+    ("ls\n", "ls", ""),
+])
+def test_strip_echo(out, line, want):
+    assert common.strip_echo(out, line) == want

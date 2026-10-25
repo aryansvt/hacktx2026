@@ -111,6 +111,23 @@ async def connect(port: int = DEFAULT_PORT, client_version: str = "", client_fac
     return await asyncssh.connect(host, port, **opts)
 
 
+def strip_echo(out: str, line: str) -> str:
+    """drop a pty's echo of the line from the front of the output, even if it wrapped."""
+    i = j = 0
+    while j < len(line) and i < len(out):
+        if out[i] in "\r\n":
+            i += 1
+        elif out[i] == line[j]:
+            i += 1
+            j += 1
+        else:
+            return out
+    if j < len(line):
+        return out
+    rest = out[i:].lstrip("\r")
+    return rest[1:] if rest.startswith("\n") else rest
+
+
 class Shell:
     """one interactive shell on the trap. send a line, read until the next prompt."""
 
@@ -120,7 +137,7 @@ class Shell:
 
     @classmethod
     async def open(cls, conn: asyncssh.SSHClientConnection, pty: bool = False) -> "Shell":
-        kw = {"term_type": "xterm-256color", "term_size": (120, 40)} if pty else {}
+        kw = {"term_type": "xterm-256color", "term_size": (200, 50)} if pty else {}
         process = await conn.create_process(encoding="utf-8", errors="replace", **kw)
         sh = cls(process)
         sh.banner = await sh.read_prompt()
@@ -136,8 +153,11 @@ class Shell:
                 return PROMPT_RE.sub("", clean).replace("\r\n", "\n")
             if on_sudo is not None and SUDO_RE.search(clean):
                 # never hand the team password to sudo from a sim
-                self.p.stdin.write(on_sudo + "\n")
                 self.buf = SUDO_RE.sub("", self.buf)
+                try:
+                    self.p.stdin.write(on_sudo + "\n")
+                except BrokenPipeError:
+                    return ANSI_RE.sub("", self.buf).replace("\r\n", "\n") + "\n(connection closed)"
             left = deadline - time.monotonic()
             if left <= 0:
                 out, self.buf = clean, ""
@@ -152,11 +172,11 @@ class Shell:
             self.buf += chunk
 
     async def run(self, line: str, timeout: float = 30.0) -> str:
-        self.p.stdin.write(line + "\n")
-        out = await self.read_prompt(timeout)
-        # a pty echoes the line back; drop it
-        first, _, rest = out.partition("\n")
-        return rest if first.strip() == line.strip() else out
+        try:
+            self.p.stdin.write(line + "\n")
+        except BrokenPipeError:
+            return "(connection closed)"
+        return strip_echo(await self.read_prompt(timeout), line)
 
     async def type(self, keys: str) -> None:
         self.p.stdin.write(keys)

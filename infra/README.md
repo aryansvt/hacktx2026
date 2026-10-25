@@ -40,7 +40,7 @@ Core first, so trap has somewhere to send events.
   ```sh
   printf '\nREDIS_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> /opt/hacktx2026/.env
   ```
-- Trap `.env`: `CORE_URL=https://api.<domain>` and the same `INGEST_TOKEN` as core.
+- Trap `.env`: `CORE_URL=https://api.<domain>` and the same `INGEST_TOKEN` as core. Add `ANTHROPIC_API_KEY` (and optionally `LLM_HOURLY_CAP`) to turn on the shell's llm fallback.
 
 ### 1. Core setup (once)
 

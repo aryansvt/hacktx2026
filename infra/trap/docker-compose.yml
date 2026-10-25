@@ -32,13 +32,16 @@ services:
       TRAP_LOGIN_TIMEOUT: ${TRAP_LOGIN_TIMEOUT:-60}
       TRAP_IDLE_TIMEOUT: ${TRAP_IDLE_TIMEOUT:-300}
       TRAP_HARD_TIMEOUT: ${TRAP_HARD_TIMEOUT:-1800}
+      # llm fallback for commands the rules engine doesn't model. no key turns it off
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_HOURLY_CAP: ${LLM_HOURLY_CAP:-200}
       # fixed for the container, whatever .env says
       TRAP_SSH_HOST: 0.0.0.0
       TRAP_SSH_PORT: "22"
       TRAP_STATE_DIR: /state
       TRAP_LOGINS_PATH: ""
     volumes:
-      # host keys, spool, cursor, dead letter file. the image chowns /state to 10001
+      # host keys, spool, cursor, dead letter file, llm call log. the image chowns /state to 10001
       - trap-state:/state
     # binding 22 as uid 10001 with zero capabilities
     sysctls:

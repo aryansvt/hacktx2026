@@ -18,6 +18,7 @@ import asyncssh
 from .auth import Auth
 from .config import Settings
 from .events import SessionEvents, Sink
+from .llm.fallback import LLMFallback, LLMSession
 from .shell.engine import Engine, ShellState
 from .vfs import Overlay
 
@@ -74,6 +75,7 @@ class TrapServer(asyncssh.SSHServer):
         self.commands = 0
         self.sessions = 0
         self.fs: Overlay | None = None
+        self.llm: LLMSession | None = None
         self._hard: asyncio.TimerHandle | None = None
 
     def connection_made(self, conn: asyncssh.SSHServerConnection) -> None:
@@ -136,11 +138,13 @@ class TrapServer(asyncssh.SSHServer):
 
 
 class TrapApp:
-    def __init__(self, settings: Settings, auth: Auth, sink: Sink, engine: Engine | None = None):
+    def __init__(self, settings: Settings, auth: Auth, sink: Sink, engine: Engine | None = None,
+                 fallback: LLMFallback | None = None):
         self.settings = settings
         self.auth = auth
         self.sink = sink
         self.engine = engine or Engine()
+        self.fallback = fallback
         self.active = 0
 
     async def start(self, host_keys: list[asyncssh.SSHKey] | None = None) -> asyncssh.SSHAcceptor:
@@ -178,8 +182,10 @@ class TrapApp:
                 server.fs = state.fs
             else:
                 state.fs = server.fs
+            if self.fallback and server.llm is None:
+                server.llm = self.fallback.session(server.events.session_id if server.events else "")
             if process.command is not None:
-                code = self.run_line(server, state, process.command, process)
+                code = await self.run_line(server, state, process.command, process)
                 process.exit(code)
             else:
                 await self.interactive(server, state, process)
@@ -190,20 +196,23 @@ class TrapApp:
             log.exception("session handler failed")
             process.exit(1)
 
-    def run_line(self, server: TrapServer, state: ShellState, line: str, process: asyncssh.SSHServerProcess) -> int:
+    async def run_line(self, server: TrapServer, state: ShellState, line: str, process: asyncssh.SSHServerProcess) -> int:
         server.commands += 1
         state.history.append(line)
         t0 = time.perf_counter()
         words = line.split()
         if words and words[0].rsplit("/", 1)[-1] in TRANSFER:
             # file transfer is refused; the client sees a closed channel
-            out, code = "", 1
+            out, code, answered_by = "", 1, "engine"
+        elif self.fallback and server.llm:
+            res, answered_by = await self.fallback.run(self.engine, state, line, server.llm)
+            out, code = res.out, res.code
         else:
             res = self.engine.run(state, line)
-            out, code = res.out, res.code
+            out, code, answered_by = res.out, res.code, "engine"
         ms = int((time.perf_counter() - t0) * 1000)
         if server.events:
-            server.events.command(line, out, ms, "engine")
+            server.events.command(line, out, ms, answered_by)
         if out:
             process.stdout.write(out)
         return code & 0xFF
@@ -235,5 +244,5 @@ class TrapApp:
             line = line.rstrip("\r\n")
             if not line.strip():
                 continue
-            code = self.run_line(server, state, line, process)
+            code = await self.run_line(server, state, line, process)
         process.exit(code)

@@ -8,7 +8,10 @@ import logging
 from .auth import Auth
 from .config import Settings
 from .events import JsonlSink
+from .llm.fallback import LLMFallback
+from .llm.provider import make_provider
 from .sender import Sender
+from .shell.engine import load_system
 from .ssh_server import TrapApp
 
 log = logging.getLogger("honeypot")
@@ -17,12 +20,16 @@ log = logging.getLogger("honeypot")
 async def serve(settings: Settings) -> None:
     # built before the server starts so the cursor is checked before new writes
     sender = Sender(settings)
-    app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path))
+    provider = make_provider(settings)
+    fallback = LLMFallback(provider, load_system(), settings.llm_hourly_cap, settings.llm_log_path) if provider else None
+    app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path), fallback=fallback)
     server = await app.start()
     log.info("ssh trap listening on %s:%s, spool %s", settings.ssh_host, settings.ssh_port, settings.spool_path)
     task = asyncio.create_task(sender.run()) if sender.enabled else None
     if task:
         log.info("sending events to %s/ingest", settings.core_url)
+    if fallback:
+        log.info("llm fallback on, %d calls an hour, log %s", settings.llm_hourly_cap, settings.llm_log_path)
     try:
         await server.wait_closed()
     finally:
@@ -31,6 +38,8 @@ async def serve(settings: Settings) -> None:
             task.cancel()
             await asyncio.gather(task, return_exceptions=True)
         await sender.close()
+        if fallback:
+            await fallback.close()
 
 
 def main() -> None:
@@ -39,6 +48,7 @@ def main() -> None:
     logging.getLogger("asyncssh").setLevel(logging.WARNING)
     # and httpx logs every request
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpx2").setLevel(logging.WARNING)
     try:
         asyncio.run(serve(Settings.from_env()))
     except KeyboardInterrupt:

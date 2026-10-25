@@ -144,6 +144,14 @@ class Overlay:
         self.added: dict[str, set[str]] = {}
         self.bytes_used = 0
 
+    def snapshot(self) -> tuple:
+        """cheap copy of the overlay. nodes are frozen, so sharing them is fine."""
+        return dict(self.entries), {k: set(v) for k, v in self.added.items()}, self.bytes_used
+
+    def restore(self, snap: tuple) -> None:
+        entries, added, used = snap
+        self.entries, self.added, self.bytes_used = dict(entries), {k: set(v) for k, v in added.items()}, used
+
     # lookups
 
     def _raw(self, path: str) -> Node | None:

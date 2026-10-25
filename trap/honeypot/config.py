@@ -39,6 +39,14 @@ class Settings:
     # where the sender posts events. empty url or token turns the sender off
     core_url: str = ""
     ingest_token: str = ""
+    # llm fallback for installed commands the engine doesn't model. no key turns it off
+    llm_provider: str = "anthropic"
+    anthropic_api_key: str = ""
+    llm_hourly_cap: int = 200
+
+    @property
+    def llm_log_path(self) -> Path:
+        return self.state_dir / "llm.jsonl"
 
     @property
     def spool_path(self) -> Path:
@@ -77,4 +85,7 @@ class Settings:
             hard_timeout=_float(env, "TRAP_HARD_TIMEOUT", 1800),
             core_url=env.get("CORE_URL", "").strip().rstrip("/"),
             ingest_token=env.get("INGEST_TOKEN", "").strip(),
+            llm_provider=env.get("LLM_PROVIDER", "").strip().lower() or "anthropic",
+            anthropic_api_key=env.get("ANTHROPIC_API_KEY", "").strip(),
+            llm_hourly_cap=_int(env, "LLM_HOURLY_CAP", 200),
         )

@@ -22,14 +22,14 @@ WRONG_PW = "not-the-Pw-77xk"
 async def make_trap(tmp_path, engine):
     started = []
 
-    async def start(**overrides):
+    async def start(fallback=None, **overrides):
         settings = replace(
             Settings(ssh_host="127.0.0.1", ssh_port=0, state_dir=tmp_path / "state"),
             guest_user="guest",
             guest_password=GUEST_PW,
             **overrides,
         )
-        app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path), engine)
+        app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path), engine, fallback)
         key = asyncssh.generate_private_key("ssh-ed25519")
         server = await app.start(host_keys=[key])
         started.append(server)
@@ -77,6 +77,27 @@ async def test_exec_whoami(make_trap):
     assert events[0]["detail"]["client"].startswith("SSH-2.0-")
     assert events[2]["detail"] == {**events[2]["detail"], "input": "whoami", "output": "root\n", "answered_by": "engine"}
     assert events[-1]["detail"]["command_count"] == 2
+
+
+async def test_llm_answers_unmodelled_commands(make_trap, tmp_path):
+    from honeypot.llm.fallback import LLMFallback
+    from honeypot.shell.engine import load_system
+
+    from llm_fakes import FakeLLM
+
+    out = "On branch main\nnothing to commit"
+    llm = FakeLLM({"stdout": out, "fs_changes": []})
+    app = await make_trap(fallback=LLMFallback(llm, load_system(), 100, tmp_path / "llm.jsonl"))
+    async with connect(app) as conn:
+        res = await conn.run("cd /var/www && git status")
+        assert res.stdout == out + "\n" and res.exit_status == 0
+        res = await conn.run("cd /var/www && git status")
+        assert res.stdout == out + "\n"
+        await conn.run("whoami")
+    events = await spool(app)
+    cmds = [e["detail"] for e in events if e["type"] == "command"]
+    assert [c["answered_by"] for c in cmds] == ["llm", "cache", "engine"]
+    assert len(llm.calls) == 1
 
 
 async def test_wrong_password_rejected(make_trap):

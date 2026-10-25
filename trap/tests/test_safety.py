@@ -9,15 +9,18 @@ ROOT = Path(__file__).resolve().parent.parent / "honeypot"
 
 BANNED_MODULES = {
     "subprocess", "pty", "socket", "ctypes", "importlib", "multiprocessing",
-    "http.client", "urllib.request", "requests", "httpx", "aiohttp",
+    "http.client", "urllib.request", "requests", "httpx", "httpx2", "aiohttp", "anthropic",
 }
 BANNED_CALLS = {"eval", "exec", "compile", "__import__"}
 BANNED_OS = {"system", "popen", "fork", "forkpty", "execl", "execle", "execlp", "execlpe", "execv",
              "execve", "execvp", "execvpe", "spawnl", "spawnle", "spawnlp", "spawnlpe", "spawnv",
              "spawnve", "spawnvp", "spawnvpe", "posix_spawn", "posix_spawnp", "startfile"}
 
-# relative path -> modules it may import. the llm client will go here too.
-ALLOW: dict[str, set[str]] = {"sender.py": {"httpx"}}
+# relative path -> modules it may import. these are the only two that reach out
+ALLOW: dict[str, set[str]] = {
+    "sender.py": {"httpx"},
+    "llm/anthropic_client.py": {"anthropic", "httpx2"},
+}
 
 
 def _banned_module(name: str) -> bool:
@@ -80,10 +83,16 @@ def test_scanner_catches(snippet):
     assert violations(snippet)
 
 
-def test_sender_is_the_only_http_module():
-    assert ALLOW == {"sender.py": {"httpx"}}
+def test_sender_and_llm_client_are_the_only_http_modules():
+    assert ALLOW == {"sender.py": {"httpx"}, "llm/anthropic_client.py": {"anthropic", "httpx2"}}
     assert violations("import httpx", "shell/engine.py")
+    assert violations("import anthropic", "llm/fallback.py")
+    assert violations("from anthropic import AsyncAnthropic", "shell/engine.py")
+    assert violations("import httpx2", "sender.py")
+    assert violations("import anthropic", "sender.py")
+    assert violations("import httpx", "llm/anthropic_client.py")
     assert violations("import httpx", "sender.py") == []
+    assert violations("import anthropic\nimport httpx2", "llm/anthropic_client.py") == []
 
 
 def test_sender_has_no_hardcoded_urls():
@@ -94,6 +103,15 @@ def test_sender_has_no_hardcoded_urls():
         if isinstance(n, ast.Constant) and isinstance(n.value, str) and "://" in n.value
     ]
     assert urls == []
+
+
+def test_llm_client_only_knows_the_anthropic_api():
+    tree = ast.parse((ROOT / "llm" / "anthropic_client.py").read_text(encoding="utf-8"))
+    urls = [
+        n.value for n in ast.walk(tree)
+        if isinstance(n, ast.Constant) and isinstance(n.value, str) and "://" in n.value
+    ]
+    assert urls == ["https://api.anthropic.com"]
 
 
 def test_scanner_allows_plain_code():

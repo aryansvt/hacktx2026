@@ -17,6 +17,8 @@ services:
       TEAM_SSH_USER: ${TEAM_SSH_USER:-}
       TEAM_SSH_PASSWORD: ${TEAM_SSH_PASSWORD:-}
       TEAM_IPS: ${TEAM_IPS:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_HOURLY_CAP: ${LLM_HOURLY_CAP:-200}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

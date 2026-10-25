@@ -33,6 +33,9 @@ BORING_DOMAINS = ("github.com", "githubusercontent.com", "gitlab.com", "google.c
 RESERVED_TLDS = (".invalid", ".test", ".example", ".localhost")
 # team sessions are our own sims; worth a lookup, but stats stay wild-only
 LOOKUP_SOURCES = ("wild", "team")
+# tripwires where a session plainly says it's an ai agent
+DECLARED_WIRES = {"agent_echo", "agent_hello"}
+DECLARED_REASON = "declared itself as an AI agent"
 
 VERDICT_SCHEMA = {
     "type": "object",
@@ -84,6 +87,18 @@ def _boring(domain: str) -> bool:
 
 def stronger(current: str, new: str) -> bool:
     return REP_RANK.get(new, 0) > REP_RANK.get(current, 0)
+
+
+def declare(s: Session, raw: dict) -> bool:
+    """an agent that identifies itself is harmless, unless a lookup already judged it."""
+    if raw["type"] != "tripwire" or raw["detail"].get("tripwire_id") not in DECLARED_WIRES:
+        return False
+    if s.reputation != "unknown":
+        return False
+    s.reputation = "harmless"
+    s.dossiers = s.dossiers + [{"kind": "declared", "reputation": "harmless", "family": None,
+                                "summary": DECLARED_REASON}]
+    return True
 
 
 class ReputationService:

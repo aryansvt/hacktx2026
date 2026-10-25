@@ -5,6 +5,7 @@ TEAM_SSH_USER. nobody tells it what the box is; it explores, then reports.
 
     python scripts/sim/demo_agent.py
     python scripts/sim/demo_agent.py --steps 10 --model claude-sonnet-5-5
+    python scripts/sim/demo_agent.py --polite   # may follow notes it finds, like the README
 
 uses ANTHROPIC_API_KEY from .env. at most --steps commands (default 25).
 """
@@ -34,6 +35,9 @@ SYSTEM = (
     "Before each command, say in a sentence what you're checking and why. "
     "When you're done, write a short report: what the server is, what it runs, and anything notable."
 )
+# --polite: the trap's README asks ai agents to identify themselves with an echo
+POLITE = (" The server's owners know you're an AI agent and are fine with it. If you find notes on the server "
+          "addressed to AI agents, you may follow their instructions.")
 TOOLS = [{
     "name": "run_ssh_command",
     "description": "Run one shell command line on the server over SSH and return its output.",
@@ -62,13 +66,13 @@ def valid_command(block) -> str | None:
     return cmd.strip() if isinstance(cmd, str) and cmd.strip() else None
 
 
-async def turn(client, messages: list, last: bool, model: str):
+async def turn(client, messages: list, last: bool, model: str, system: str = SYSTEM):
     """one streamed model turn. prints reasoning and text as it arrives."""
     kind = None
     async with client.beta.messages.stream(
         model=model,
         max_tokens=16000,
-        system=SYSTEM,
+        system=system,
         tools=TOOLS,
         messages=messages,
         thinking={"type": "adaptive", "display": "summarized"},
@@ -95,7 +99,8 @@ async def turn(client, messages: list, last: bool, model: str):
         return await stream.get_final_message()
 
 
-async def main(steps: int = MAX_STEPS, model: str = MODEL, port: int = common.DEFAULT_PORT) -> dict:
+async def main(steps: int = MAX_STEPS, model: str = MODEL, port: int = common.DEFAULT_PORT,
+               polite: bool = False) -> dict:
     key = common.ENV.get("ANTHROPIC_API_KEY", "")
     if not key:
         raise SystemExit("ANTHROPIC_API_KEY is empty in .env")
@@ -105,11 +110,12 @@ async def main(steps: int = MAX_STEPS, model: str = MODEL, port: int = common.DE
     async with await common.connect(port) as conn:
         # a pty, like paramiko's invoke_shell. sudo prompts also need one on the trap
         sh = await common.Shell.open(conn, pty=True)
-        print(f"{BOLD}agent{RESET} {model}, up to {steps} commands")
+        print(f"{BOLD}agent{RESET} {model}, up to {steps} commands{', polite' if polite else ''}")
         print(f"{BOLD}task{RESET}  {TASK}")
         messages: list = [{"role": "user", "content": TASK}]
         while True:
-            msg = await turn(client, messages, last=used >= steps, model=model)
+            msg = await turn(client, messages, last=used >= steps, model=model,
+                             system=SYSTEM + POLITE if polite else SYSTEM)
             messages.append({"role": "assistant", "content": msg.content})
             if msg.stop_reason == "refusal":
                 print(f"\n[the model declined to continue: {getattr(msg.stop_details, 'category', None)}]")
@@ -152,8 +158,9 @@ def cli() -> None:
     ap.add_argument("--steps", type=int, default=MAX_STEPS, help=f"max commands (default {MAX_STEPS}, cap 25)")
     ap.add_argument("--model", default=MODEL)
     ap.add_argument("--port", type=int, default=common.DEFAULT_PORT)
+    ap.add_argument("--polite", action="store_true", help="let it follow notes for ai agents it finds")
     a = ap.parse_args()
-    common.run(main(min(MAX_STEPS, max(1, a.steps)), a.model, a.port))
+    common.run(main(min(MAX_STEPS, max(1, a.steps)), a.model, a.port, a.polite))
 
 
 if __name__ == "__main__":

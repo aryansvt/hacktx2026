@@ -5,7 +5,8 @@ import fakeredis
 import pytest
 
 from brain.budget import hour_key
-from brain.reputation import ReputationService, Target
+from brain.reputation import ReputationService, Target, declare
+from brain.output import derived_id
 from brain.session import Session
 from brain.worker import EVENTS, Brain
 
@@ -207,6 +208,41 @@ async def test_bot_session_looks_up_ip_domain_and_tool():
     assert any("malware.example.net" in q for q in serp.queries)
     assert any("bins.sh" in q for q in serp.queries)
     assert len([e for e in events if e["type"] == "dossier"]) == len(serp.queries) <= 4
+
+
+def _declaring_agent(*wires):
+    """the agent fixture with its tripwire swapped for the given self-identify wires."""
+    raws = load_fixture("agent")
+    trip = next(e for e in raws if e["type"] == "tripwire")
+    at = raws.index(trip)
+    swapped = [{**trip, "event_id": derived_id(trip["event_id"], w), "detail": {"tripwire_id": w, "reasons": ["said hi"]}}
+               for w in wires]
+    return raws[:at] + swapped + raws[at + 1:]
+
+
+async def test_declared_agent_turns_harmless_once():
+    brain = Brain(fakeredis.FakeAsyncRedis(), SETTINGS, FakeGeo())
+    out = []
+    for raw in _declaring_agent("agent_echo", "agent_hello"):
+        out += await brain.handle(raw)
+    dossiers = [e for e in out if e["type"] == "dossier"]
+    assert len(dossiers) == 1
+    VALIDATOR.validate(dossiers[0])
+    assert dossiers[0]["detail"] == {"summary": "declared itself as an AI agent", "sources": []}
+    assert dossiers[0]["attacker"]["reputation"] == "harmless"
+    s = await brain.store.get(out[0]["session_id"])
+    assert s.reputation == "harmless"
+
+
+def test_declaring_never_clears_malicious():
+    s = Session("x", reputation="malicious", family="mirai")
+    raw = {"type": "tripwire", "detail": {"tripwire_id": "agent_echo", "reasons": []}}
+    assert not declare(s, raw)
+    assert s.reputation == "malicious"
+    # only acting on the notice counts, not reading it
+    s = Session("y")
+    assert not declare(s, {"type": "tripwire", "detail": {"tripwire_id": "agent_notice_read", "reasons": []}})
+    assert declare(s, raw) and s.reputation == "harmless"
 
 
 async def test_harmless_does_not_override_malicious():

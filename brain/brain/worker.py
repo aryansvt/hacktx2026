@@ -16,6 +16,7 @@ from . import classifier
 from .commands import downloaded_files
 from .output import build, derived_id, public_detail
 from .privacy import ip_hash
+from .reputation import DECLARED_REASON, declare
 from .session import Session, SessionStore, parse_ts
 from .techniques import map_command
 from .threat import apply, level_for_event, max_level, payload_writes
@@ -73,6 +74,7 @@ class Brain:
                 s = self._new_session(raw)
             s.observe(raw)
             await self._count_visits(s, raw, new)
+            declared = declare(s, raw)
 
             techniques: list[str] = []
             line = ""
@@ -98,6 +100,9 @@ class Brain:
                             derived_id(raw["event_id"], "classified"))
                 # the final verdict goes out before session_end so the globe and story see it
                 out.insert(0 if typ == "session_end" else len(out), cls)
+            if declared:
+                out.append(build("dossier", s, raw["timestamp"], {"summary": DECLARED_REASON, "sources": []},
+                                 derived_id(raw["event_id"], "dossier:declared")))
             # picked under the lock so two events can't start the same lookup
             targets = self.rep.targets(s, raw) if self.rep is not None else []
             await self.store.save(s)

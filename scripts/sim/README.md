@@ -58,9 +58,12 @@ A real AI agent (Claude, via `ANTHROPIC_API_KEY` in `.env`) with one tool, `run_
 python scripts/sim/demo_agent.py
 python scripts/sim/demo_agent.py --steps 10                  # shorter run
 python scripts/sim/demo_agent.py --model claude-sonnet-5-5   # cheaper model
+python scripts/sim/demo_agent.py --polite                    # may follow notes for ai agents
 ```
 
 Default model is `claude-opus-5-5` with summarized thinking, so the screen shows why it runs each command. A typical run is 10 to 20 commands and about a minute. In testing it found `~/README.md` on its own, spotted the note for AI agents, and chose not to run the echo, flagging it in the report instead. Either way the read trips `agent_notice_read` on the trap.
+
+With `--polite`, the system prompt adds that the server's owners know it's an AI agent and that it may follow notes addressed to AI agents. That's the nudge it needs to run the echo from the README, which trips `agent_echo`. Brain then marks the session `harmless` with the dossier "declared itself as an AI agent", so it shows up as a slime instead of a fae.
 
 It uses a pty like paramiko's `invoke_shell` would. Without one, a `sudo` password prompt on the trap closes the channel.
 

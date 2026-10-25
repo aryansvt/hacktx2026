@@ -5,7 +5,7 @@ import json
 import httpx2
 import pytest
 
-from honeypot.llm.anthropic_client import MODEL, AnthropicProvider, OffTarget
+from honeypot.llm.anthropic_client import KEEPALIVE, MODEL, AnthropicProvider, OffTarget
 from honeypot.llm.prompt import SCHEMA
 from honeypot.llm.provider import LLMError, LLMTimeout
 
@@ -36,22 +36,57 @@ def provider(api):
     return AnthropicProvider("test-key", transport=httpx2.MockTransport(api))
 
 
-async def test_request_shape():
+async def test_request_shape_plain_json():
     api = Api()
     p = provider(api)
-    out = await p.complete("sys", [{"role": "user", "content": "cmd"}], SCHEMA)
-    assert out == '{"stdout": "hi", "fs_changes": []}'
+    reply = await p.complete("sys", [{"role": "user", "content": "cmd"}], SCHEMA)
+    assert reply.text == '{"stdout": "hi", "fs_changes": []}'
+    assert (reply.stop, reply.input_tokens, reply.output_tokens) == ("end_turn", 10, 5)
+    assert isinstance(reply.ms, int) and reply.ms >= 0
     [req] = api.requests
     assert req.url.host == "api.anthropic.com" and req.url.path == "/v1/messages"
     assert req.headers["authorization"] == "Bearer test-key"
     body = json.loads(req.content)
     assert body["model"] == "claude-haiku-5-5"
-    assert body["max_tokens"] == 800
+    assert body["max_tokens"] == 512
     assert body["system"] == "sys"
     assert body["thinking"] == {"type": "disabled"}
-    assert body["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}}
+    # plain mode: json is asked for in the prompt, no schema to compile
+    assert body["output_config"] == {"effort": "low"}
     # haiku 5.5 rejects any non-default sampling
     assert not {"temperature", "top_p", "top_k"} & body.keys()
+    await p.close()
+
+
+async def test_request_shape_structured():
+    api = Api()
+    p = AnthropicProvider("test-key", structured=True, transport=httpx2.MockTransport(api))
+    await p.complete("sys", [{"role": "user", "content": "cmd"}], SCHEMA)
+    body = json.loads(api.requests[0].content)
+    assert body["output_config"] == {"effort": "low", "format": {"type": "json_schema", "schema": SCHEMA}}
+    await p.close()
+
+
+async def test_warm_up_is_a_free_models_call():
+    seen = []
+
+    def handler(request):
+        seen.append(request)
+        return httpx2.Response(200, json={"id": MODEL, "type": "model", "display_name": "Claude Haiku 5.5",
+                                          "created_at": "2026-09-01T00:00:00Z"})
+
+    p = AnthropicProvider("k", transport=httpx2.MockTransport(handler))
+    ms = await p.warm()
+    assert isinstance(ms, int)
+    [req] = seen
+    assert req.method == "GET" and req.url.host == "api.anthropic.com" and req.url.path == f"/v1/models/{MODEL}"
+    await p.close()
+
+
+async def test_pool_keeps_connections_alive():
+    p = AnthropicProvider("k")
+    # httpx drops idle connections after 5 s by default; the pool lives on our transport
+    assert p.http._transport._pool._keepalive_expiry == KEEPALIVE >= 300
     await p.close()
 
 

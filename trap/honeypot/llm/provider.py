@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import Protocol
 
 from ..config import Settings
@@ -18,9 +19,23 @@ class LLMTimeout(LLMError):
     pass
 
 
+@dataclass
+class Reply:
+    text: str
+    # wall time of the one http call, as the trap saw it
+    ms: int = 0
+    stop: str = "end_turn"
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
 class Provider(Protocol):
-    async def complete(self, system: str, messages: list[dict], schema: dict) -> str:
-        """one request. returns the reply text, which should be json matching schema."""
+    async def complete(self, system: str, messages: list[dict], schema: dict) -> Reply:
+        """one request. the reply text should be a json object matching schema."""
+        ...
+
+    async def warm(self) -> int:
+        """a free request that opens the connection. returns its ms."""
         ...
 
     async def close(self) -> None: ...

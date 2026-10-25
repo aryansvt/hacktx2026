@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from .budget import take
-from .commands import domains, tool_names
+from .commands import domains, public_host, tool_names
 from .llm import CapReached
 from .output import build, derived_id
 from .privacy import scrub_ips
@@ -29,8 +29,6 @@ REP_RANK = {"unknown": 0, "harmless": 1, "malicious": 2}
 BORING_DOMAINS = ("github.com", "githubusercontent.com", "gitlab.com", "google.com", "googleapis.com",
                   "ubuntu.com", "debian.org", "centos.org", "python.org", "pypi.org", "npmjs.org",
                   "npmjs.com", "docker.com", "docker.io", "cloudflare.com", "microsoft.com")
-# reserved tlds (rfc 2606) never resolve, so nothing to find
-RESERVED_TLDS = (".invalid", ".test", ".example", ".localhost")
 # team sessions are our own sims; worth a lookup, but stats stay wild-only
 LOOKUP_SOURCES = ("wild", "team")
 # tripwires where a session plainly says it's an ai agent
@@ -82,7 +80,7 @@ def _sha(text: str) -> str:
 
 
 def _boring(domain: str) -> bool:
-    return domain.endswith(RESERVED_TLDS) or any(domain == d or domain.endswith("." + d) for d in BORING_DOMAINS)
+    return any(domain == d or domain.endswith("." + d) for d in BORING_DOMAINS)
 
 
 def stronger(current: str, new: str) -> bool:
@@ -121,7 +119,8 @@ class ReputationService:
         if raw["type"] == "command":
             line = raw["detail"]["input"]
             for d in domains(line):
-                if d != s.src_ip and not _boring(d):
+                # loopback, lan and reserved hosts have nothing on the web
+                if d != s.src_ip and public_host(d) and not _boring(d):
                     out.append(Target("domain", f'"{d}"', f"domain:{_sha(d)}", d))
             # only programs it ran, chmodded +x or downloaded, with names worth searching
             for t in tool_names(line):

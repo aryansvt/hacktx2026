@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import posixpath
 import re
 from urllib.parse import urlsplit
@@ -21,6 +22,12 @@ _FILE_EXT = (".sh", ".txt", ".py", ".pl", ".conf", ".cfg", ".log", ".json", ".md
              ".ini", ".php", ".js", ".html", ".key", ".pem", ".db", ".sql", ".bak")
 
 DOWNLOADERS = {"wget", "curl", "tftp", "ftpget", "scp", "lwp-download", "fetch", "aria2c"}
+# short flags that take no value, so bundles like -fsSLo x or -qO- can be read
+_CURL_BOOL = set("sSLfkvqiIgGjJnNOR0123456Z#")
+_WGET_BOOL = set("qvdnNcrkKmpSFxbE46")
+# tlds that never resolve on the internet (rfc 2606, 6761, 6762) and common lan suffixes
+PRIVATE_TLDS = ("invalid", "test", "example", "localhost", "local", "lan", "internal", "intranet",
+                "home", "corp", "home.arpa")
 SHELLS = {"sh", "bash", "dash", "zsh", "ash", "ksh"}
 
 # binaries any linux box has. anything else counts as an unusual tool name
@@ -92,6 +99,10 @@ ENGLISH_WORDS = {
     "game", "games", "play", "player", "chat", "message", "messages", "mail", "email",
 }
 
+# web endpoints and placeholders that turn up as download names and say nothing on a search
+NOISE_WORDS = {"null", "health", "healthz", "healthcheck", "livez", "readyz", "metrics", "robots",
+               "favicon", "index", "status"}
+
 
 def segments(line: str) -> list[str]:
     """split a line on ; && || | and newlines."""
@@ -134,6 +145,23 @@ def _bare_hosts(line: str) -> list[str]:
     return out
 
 
+def public_host(host: str) -> bool:
+    """worth a web search: a public ip, or a domain under a real tld. strings only, never resolved."""
+    h = host.strip("[]").rstrip(".").lower()
+    try:
+        ip = ipaddress.ip_address(h)
+    except ValueError:
+        ip = None
+    if ip is not None:
+        if ip.version == 6 and ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        # skips loopback, private, link-local, reserved and documentation ranges
+        return ip.is_global and not ip.is_multicast
+    if "." not in h or h.rsplit(".", 1)[1].isdigit():
+        return False
+    return not any(h == tld or h.endswith("." + tld) for tld in PRIVATE_TLDS)
+
+
 def domains(line: str) -> list[str]:
     """hosts named in a line. strings only, never resolved."""
     hosts: list[str] = []
@@ -161,27 +189,76 @@ def is_download(line: str) -> bool:
     return False
 
 
+def _saved(path: str) -> str | None:
+    """file name an output path creates. None for stdout (-) or a device like /dev/null."""
+    path = path.strip("'\"")
+    if not path or path == "-" or path.startswith("/dev/"):
+        return None
+    return posixpath.basename(path) or None
+
+
+def _opt_values(toks: list[str], short: str, longs: tuple[str, ...], bools: set[str]) -> list[str]:
+    """values given to one option: -o x, -ox, -sSLo x, -qO-, --output x, --output=x."""
+    out = []
+    for i, t in enumerate(toks):
+        nxt = toks[i + 1] if i + 1 < len(toks) else ""
+        if t.startswith("--"):
+            name, eq, val = t.partition("=")
+            if name in longs:
+                out.append(val if eq else nxt)
+        elif t.startswith("-"):
+            for j, ch in enumerate(t[1:], 1):
+                if ch == short:
+                    out.append(t[j + 1:] or nxt)
+                    break
+                if ch not in bools:
+                    break
+    return out
+
+
+def _has_flag(toks: list[str], short: str, longs: tuple[str, ...], bools: set[str]) -> bool:
+    """a no-value option, alone or bundled: -O, -fsSLO, --remote-name."""
+    for t in toks:
+        if t.startswith("--"):
+            if t in longs:
+                return True
+        elif t.startswith("-"):
+            for ch in t[1:]:
+                if ch == short:
+                    return True
+                if ch not in bools:
+                    break
+    return False
+
+
 def downloaded_files(line: str) -> list[str]:
-    """file names a download in this line would create."""
+    """file names a download in this line actually saves. curl only saves with -o, -O or a > redirect."""
     if not is_download(line):
         return []
     names = []
     for seg in segments(line):
-        if command_name(seg) not in DOWNLOADERS:
+        name = command_name(seg)
+        if name not in DOWNLOADERS:
             continue
         toks = words(seg)
-        for i, t in enumerate(toks):
-            if t in ("-O", "-o", "-r", "--output") and i + 1 < len(toks) and toks[i + 1] != "-":
-                names.append(posixpath.basename(toks[i + 1]))
-        for u in URL_RE.findall(seg):
-            base = posixpath.basename(urlsplit(u).path)
-            if base:
-                names.append(base)
-        for h in _bare_hosts(seg):
-            if "/" in h:
-                base = posixpath.basename(h)
-                if base:
-                    names.append(base)
+        remote = [posixpath.basename(urlsplit(u).path) for u in URL_RE.findall(seg)]
+        remote += [posixpath.basename(h) for h in _bare_hosts(seg) if "/" in h]
+        redirects = [m.group(1) for m in _REDIRECT.finditer(seg) if m.group(1)]
+        if name == "curl":
+            outs = _opt_values(toks, "o", ("--output",), _CURL_BOOL) + redirects
+            if _has_flag(toks, "O", ("--remote-name", "--remote-name-all"), _CURL_BOOL):
+                names += remote
+        elif name == "wget":
+            outs = _opt_values(toks, "O", ("--output-document",), _WGET_BOOL)
+            if not outs:
+                # wget saves under the url's own name unless -O says otherwise
+                names += remote
+            elif "-" in outs:
+                outs += redirects
+        else:
+            outs = [toks[i + 1] for i, t in enumerate(toks[:-1]) if t in ("-O", "-o", "-r", "--output")]
+            names += remote
+        names += [n for n in map(_saved, outs) if n]
     return list(dict.fromkeys(n for n in names if n))
 
 
@@ -262,7 +339,7 @@ def _distinctive(name: str) -> bool:
     stem = name.rsplit(".", 1)[0] if "." in name[1:] else name
     stem = stem.lstrip(".").lower()
     return (len(stem) >= 4 and stem not in COMMON and stem not in BUILTINS and stem not in ENGLISH_WORDS
-            and bool(re.fullmatch(r"[a-z0-9_.-]+", stem)) and not stem.isdigit())
+            and stem not in NOISE_WORDS and bool(re.fullmatch(r"[a-z0-9_.-]+", stem)) and not stem.isdigit())
 
 
 def tool_names(line: str) -> list[str]:

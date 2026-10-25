@@ -409,6 +409,7 @@ def signals(s: Session) -> list[Signal]:
 
 
 UNKNOWN = Verdict("unknown", 0.0, ["not enough activity yet"])
+GUEST_REASON = "logged in at the judge station (known human)"
 
 
 def score(s: Session) -> Verdict:
@@ -417,6 +418,9 @@ def score(s: Session) -> Verdict:
     for floor in (repeat_visitor(s), quick_scan(s)):
         if floor and (v.kind == "unknown" or (v.kind == "bot" and v.confidence < floor.confidence)):
             v = floor
+    # the guest login only exists at our judge station, so it's a real person
+    if s.source == "guest":
+        return Verdict("human", MAX_CONFIDENCE, [GUEST_REASON, f"classifier's guess from behavior: {v.kind} {v.confidence:.2f}"])
     return v
 
 

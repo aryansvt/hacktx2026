@@ -68,6 +68,20 @@ def test_confidence_grows_as_evidence_arrives():
     assert late.confidence >= early.confidence
 
 
+def test_guest_is_always_human_and_keeps_the_classifier_guess():
+    # the agent fixture alone scores agent; as a guest it's a known human
+    guess = c.score(replay(load("agent")))
+    v = c.score(replay(load("agent"), source="guest"))
+    assert (v.kind, v.confidence) == ("human", c.MAX_CONFIDENCE)
+    assert v.reasons == [c.GUEST_REASON, f"classifier's guess from behavior: agent {guess.confidence:.2f}"]
+    # even before any activity
+    v = c.score(Session("x", source="guest"))
+    assert v.kind == "human"
+    assert v.reasons[1] == "classifier's guess from behavior: unknown 0.00"
+    # team sessions still go through the classifier
+    assert c.score(replay(load("agent"), source="team")).kind == "agent"
+
+
 def test_asn_signals():
     s = Session("x", asn_org="Censys, Inc.", asn_category="scanner")
     assert c.asn_signals(s)[0].label == "bot"

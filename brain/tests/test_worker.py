@@ -238,6 +238,10 @@ async def test_guest_and_team_visits_are_not_counted():
     r = fakeredis.FakeAsyncRedis()
     brain = Brain(r, SETTINGS, FakeGeo())
     for i in range(12):
+        # guests are known humans, never a busy-ip bot
         out = await _run(brain, _visit(f"ssh-g{i}", T0 + i, source="guest"))
+        assert all(ev["attacker"]["kind"] == "human" for ev in out)
+    for i in range(12):
+        out = await _run(brain, _visit(f"ssh-t{i}", T0 + i, source="team"))
         assert all(ev["attacker"]["kind"] == "unknown" for ev in out)
     assert await r.keys("brain:visits:*") == []

@@ -101,7 +101,7 @@ def test_env_export_history(sh):
 
 
 def test_which_exit(sh):
-    assert sh("which ls") == "/usr/sbin/ls\n" or sh("which ls") == "/usr/bin/ls\n"
+    assert sh("which ls") == "/usr/bin/ls\n"
     assert sh("which nope") == ""
     assert sh.state.last_status == 1
     sh("exit")

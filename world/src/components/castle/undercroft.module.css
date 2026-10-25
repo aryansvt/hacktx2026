@@ -1,0 +1,124 @@
+/* drawer rises from the timeline and leaves the top half of the globe visible */
+.drawer {
+  position: fixed;
+  z-index: 28;
+  left: 20px;
+  right: 20px;
+  bottom: 90px;
+  height: min(420px, 46dvh);
+  padding: 18px 26px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.head {
+  padding-right: 40px;
+}
+.close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+}
+.figures {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+}
+.figure {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.figure span {
+  font-size: 15px;
+}
+.figure strong {
+  font: 500 clamp(26px, 2.6vw, 40px) / 1.1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--blue);
+}
+.figure small {
+  font-size: 13px;
+  color: var(--muted);
+}
+.cols {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 2.4fr;
+  gap: 24px;
+}
+.cols h3 {
+  margin: 0 0 6px;
+  font: 400 19px var(--font-display);
+  color: var(--primary);
+}
+.reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.reasons li {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-size: 14px;
+}
+.reasons .trip {
+  border-color: var(--kind-agent);
+  color: #5d3592;
+}
+.rawCol {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.raw {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  background: var(--midnight);
+  color: #d8dcef;
+  border-radius: var(--radius);
+  font: 12px/1.55 var(--font-mono);
+}
+.raw li {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.raw time {
+  color: var(--gold-light);
+}
+.raw b {
+  color: #9fb8ff;
+  font-weight: 400;
+}
+.raw code {
+  color: #aab0c8;
+}
+.empty {
+  font-style: italic;
+  color: var(--muted);
+}
+@media (max-width: 900px) {
+  .figures {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cols {
+    grid-template-columns: 1fr;
+  }
+}

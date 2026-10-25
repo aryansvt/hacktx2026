@@ -18,6 +18,7 @@ import CreaturePage from "@/components/creature/CreaturePage";
 import Oracle from "@/components/oracle/Oracle";
 import WebIntel from "@/components/oracle/WebIntel";
 import Bestiary from "@/components/bestiary/Bestiary";
+import Undercroft from "@/components/castle/Undercroft";
 const World = dynamic(() => import("./World"), {
   ssr: false,
   loading: () => null,
@@ -25,6 +26,8 @@ const World = dynamic(() => import("./World"), {
 export default function LiveShell() {
   const view = useView();
   const hashMode = useHashMode();
+  const [castle, setCastle] = useState(false);
+  const closeCastle = useCallback(() => setCastle(false), []);
   const kiosk = hashMode === "kiosk";
   useKioskTour(kiosk);
   useGuestFollow(hashMode === "guest");
@@ -142,7 +145,10 @@ export default function LiveShell() {
       {!kiosk && <WebIntel />}
       {!kiosk && <Bestiary />}
       <Oracle />
-      {!kiosk && <Timeline />}
+      {!kiosk && (
+        <Timeline castleOpen={castle} onCastle={() => setCastle((v) => !v)} />
+      )}
+      {!kiosk && <Undercroft open={castle} onClose={closeCastle} />}
       <Footer />
     </main>
   );

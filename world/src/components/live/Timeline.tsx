@@ -3,7 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { useDomain } from "@/lib/store";
 import styles from "./live.module.css";
 // attacks per bucket over 24h, stacked by kind
-export default function Timeline() {
+export default function Timeline({
+  castleOpen,
+  onCastle,
+}: {
+  castleOpen: boolean;
+  onCastle: () => void;
+}) {
   const data = useDomain((s) => s.data);
   const chart = useRef<HTMLDivElement>(null);
   const [bucketCount, setBucketCount] = useState(64);
@@ -104,6 +110,14 @@ export default function Timeline() {
         </div>
         <span className={styles.now}>Now</span>
       </div>
+      <button
+        className={styles.castleButton}
+        aria-expanded={castleOpen}
+        title="Raw events, response times and classifier evidence"
+        onClick={onCastle}
+      >
+        Beneath the Castle
+      </button>
     </div>
   );
 }

@@ -562,3 +562,20 @@
     display: none;
   }
 }
+
+.castleButton {
+  white-space: nowrap;
+  font: 400 17px var(--font-display);
+  padding: 6px 14px;
+  color: var(--bg);
+  background: var(--blue);
+  border: 1px solid var(--gold-deep);
+  box-shadow: inset 0 0 0 2px rgba(240, 207, 106, 0.3);
+}
+.castleButton:not(:disabled):hover {
+  background: #2b4ea6;
+  border-color: var(--gold);
+}
+.castleButton[aria-expanded="true"] {
+  background: var(--midnight-2);
+}

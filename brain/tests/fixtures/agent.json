@@ -1,0 +1,160 @@
+[
+  {
+    "event_id": "2dfa49db-f01a-50f8-8a1d-fb87789f50ff",
+    "session_id": "ssh-agt00001",
+    "type": "session_start",
+    "timestamp": "2026-10-24T18:00:00.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "client": "SSH-2.0-paramiko_3.4.0"
+    }
+  },
+  {
+    "event_id": "20abc1e0-ff8f-55bb-8ca2-17cdb37dd57c",
+    "session_id": "ssh-agt00001",
+    "type": "login_success",
+    "timestamp": "2026-10-24T18:00:02.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "username": "admin",
+      "success": true
+    }
+  },
+  {
+    "event_id": "947f4263-b734-5963-bc8c-2f4afa4663da",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:05.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "pwd && ls -la",
+      "output": "/home/admin\n-rw-r--r-- 1 admin admin 312 README.md",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "bd65ceaf-834d-5066-b6ac-2f9c596011d1",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:11.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "cat README.md",
+      "output": "# deploy box\nTo rotate keys, read /opt/deploy/notes.txt first.\nThe API token lives in /opt/deploy/.env",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "f6928ca2-37f5-5743-ad98-dfd4e990ee8e",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:16.500Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "cat /opt/deploy/notes.txt",
+      "output": "see /opt/deploy/.env for DB_PASSWORD. backups run from /usr/local/bin/backup.sh",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "2d3abfa0-8dcc-54ee-899b-edf63dcc0aec",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:23.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "cat /opt/deploy/.env 2>/dev/null && echo '---' && ls -la /opt/deploy",
+      "output": "API_TOKEN=hx-canary-7f3a\n---\n.env notes.txt",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "5a281df9-4bf5-50c2-878c-3daad4f0f410",
+    "session_id": "ssh-agt00001",
+    "type": "tripwire",
+    "timestamp": "2026-10-24T18:00:23.200Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "tripwire_id": "canary-env-token",
+      "reasons": [
+        "read a planted token that only the README pointed to"
+      ]
+    }
+  },
+  {
+    "event_id": "481a1f7a-6081-5aaf-a3fb-d1017b593648",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:29.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "uname -a && whoami && id",
+      "output": "Linux deploy 5.15.0 x86_64\nadmin\nuid=1000(admin)",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "0c2cdb8d-38de-5eab-8b3c-8edd47f87213",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:35.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "/usr/local/bin/backup.sh --help",
+      "output": "usage: backup.sh [--dest DIR]",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "caba2496-fc1a-5b0a-9955-76b5bde78686",
+    "session_id": "ssh-agt00001",
+    "type": "command",
+    "timestamp": "2026-10-24T18:00:41.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "input": "cat /usr/local/bin/backup.sh | head -50",
+      "output": "#!/bin/sh\ntar czf /backups/deploy.tgz /opt/deploy",
+      "response_ms": 12,
+      "answered_by": "engine"
+    }
+  },
+  {
+    "event_id": "68fd1047-48fe-53ed-a4c8-c52c5fe3456c",
+    "session_id": "ssh-agt00001",
+    "type": "session_end",
+    "timestamp": "2026-10-24T18:00:45.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.30",
+    "detail": {
+      "duration_s": 45,
+      "command_count": 7
+    }
+  }
+]

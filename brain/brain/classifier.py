@@ -40,6 +40,8 @@ WEIGHTS = {
     # network owner
     "asn_cloud": 1.0,
     "asn_scanner": 1.5,
+    # same ip_hash over and over
+    "repeat_visits": 3.0,
 }
 
 # signals that count for two labels at once
@@ -61,6 +63,10 @@ IRREGULAR_CV = 0.8
 # login-only scans: scripted client, no commands, gone within a few seconds
 QUICK_SCAN_S = 5.0
 QUICK_SCAN_CONF = 0.7
+
+# one ip_hash with this many sessions in the last hour is a bot, whatever its client
+REPEAT_VISITS = 10
+REPEAT_CONF = 0.75
 
 
 @dataclass(frozen=True)
@@ -278,6 +284,23 @@ def quick_scan(s: Session) -> Verdict | None:
     return Verdict("bot", QUICK_SCAN_CONF, reasons)
 
 
+def repeat_signals(s: Session) -> list[Signal]:
+    n = s.recent_sessions
+    if n < REPEAT_VISITS:
+        return []
+    return [Signal("bot", "repeat_visits", f"connected {n} times in the last hour")]
+
+
+def repeat_visitor(s: Session) -> Verdict | None:
+    """an ended session from an ip that keeps coming back."""
+    if not s.ended or s.recent_sessions < REPEAT_VISITS:
+        return None
+    quick = quick_scan(s)
+    extra = quick.reasons if quick else [x.reason for x in signals(s) if x.label == "bot"]
+    reasons = list(dict.fromkeys([repeat_signals(s)[0].reason] + extra))[:4]
+    return Verdict("bot", REPEAT_CONF, reasons)
+
+
 def tripwire_signals(s: Session) -> list[Signal]:
     if not s.tripwires:
         return []
@@ -296,7 +319,8 @@ def asn_signals(s: Session) -> list[Signal]:
     return []
 
 
-SIGNALS = (timing_signals, content_signals, client_signals, login_signals, tripwire_signals, asn_signals)
+SIGNALS = (timing_signals, content_signals, client_signals, login_signals, tripwire_signals, asn_signals,
+           repeat_signals)
 
 
 def signals(s: Session) -> list[Signal]:
@@ -311,10 +335,10 @@ UNKNOWN = Verdict("unknown", 0.0, ["not enough activity yet"])
 
 def score(s: Session) -> Verdict:
     v = _weighed(s)
-    quick = quick_scan(s)
-    # a quick scan beats too little evidence or a weaker bot verdict
-    if quick and (v.kind == "unknown" or (v.kind == "bot" and v.confidence < quick.confidence)):
-        return quick
+    # a busy ip or a quick scan beats too little evidence or a weaker bot verdict
+    for floor in (repeat_visitor(s), quick_scan(s)):
+        if floor and (v.kind == "unknown" or (v.kind == "bot" and v.confidence < floor.confidence)):
+            v = floor
     return v
 
 

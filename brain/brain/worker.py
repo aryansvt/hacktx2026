@@ -16,9 +16,10 @@ from . import classifier
 from .commands import downloaded_files
 from .output import build, derived_id, public_detail
 from .privacy import ip_hash
-from .session import Session, SessionStore
+from .session import Session, SessionStore, parse_ts
 from .techniques import map_command
 from .threat import apply, level_for_event, max_level, payload_writes
+from .visits import VisitTracker
 
 log = logging.getLogger(__name__)
 
@@ -40,6 +41,7 @@ class Brain:
         self.rep = reputation
         self.story = storyteller
         self.store = SessionStore(redis, settings.session_ttl_s)
+        self.visits = VisitTracker(redis)
         self.locks: dict[str, asyncio.Lock] = defaultdict(asyncio.Lock)
         self.tasks: set[asyncio.Task] = set()
         self.session_tasks: dict[str, set[asyncio.Task]] = defaultdict(set)
@@ -65,8 +67,12 @@ class Brain:
         parse_raw_event(raw)  # raises on anything off-contract
         sid, typ = raw["session_id"], raw["type"]
         async with self.locks[sid]:
-            s = await self.store.get(sid) or self._new_session(raw)
+            s = await self.store.get(sid)
+            new = s is None
+            if new:
+                s = self._new_session(raw)
             s.observe(raw)
+            await self._count_visits(s, raw, new)
 
             techniques: list[str] = []
             line = ""
@@ -100,6 +106,16 @@ class Brain:
             self._spawn(sid, self._lookup(sid, target, raw))
         self._schedule_story(s, raw)
         return out
+
+    async def _count_visits(self, s: Session, raw: dict, new: bool) -> None:
+        """wild sessions per ip_hash in the last hour, on the first event and again at the end."""
+        if s.source != "wild" or not s.ip_hash or not (new or raw["type"] == "session_end"):
+            return
+        t = parse_ts(raw["timestamp"])
+        if new:
+            s.recent_sessions = await self.visits.record(s.ip_hash, s.session_id, t)
+        else:
+            s.recent_sessions = await self.visits.count(s.ip_hash, t)
 
     def _schedule_story(self, s: Session, raw: dict) -> None:
         if self.story is not None and raw["type"] == "session_end":

@@ -200,3 +200,42 @@ def test_quick_scan_lifts_a_weak_bot_verdict():
     v = c.score(s)
     assert v.kind == "bot" and v.confidence == pytest.approx(0.7)
     assert "tried 3 logins in 1.2s, then left" in v.reasons
+
+
+# ---- repeat visitors (one ip_hash, many sessions in the last hour) ----
+
+def test_busy_ip_is_a_bot_regardless_of_client():
+    s = _scan("SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13", end_at=30.0)
+    assert c.score(s) == c.UNKNOWN
+    s.recent_sessions = c.REPEAT_VISITS
+    v = c.score(s)
+    assert v.kind == "bot" and v.confidence == pytest.approx(c.REPEAT_CONF) == pytest.approx(0.75)
+    assert v.reasons[0] == "connected 10 times in the last hour"
+
+
+def test_busy_ip_needs_ten_sessions_and_an_ended_session():
+    s = _scan("SSH-2.0-PuTTY_Release_0.80")
+    s.recent_sessions = c.REPEAT_VISITS - 1
+    assert c.score(s) == c.UNKNOWN
+    live = _scan("SSH-2.0-PuTTY_Release_0.80", ended=False)
+    live.recent_sessions = 25
+    assert c.repeat_visitor(live) is None
+
+
+def test_busy_ip_beats_a_quick_scan_and_keeps_its_reasons():
+    s = _scan("SSH-2.0-Go")
+    s.recent_sessions = 14
+    v = c.score(s)
+    assert v.confidence == pytest.approx(0.75)
+    assert v.reasons[:2] == ["connected 14 times in the last hour", "scanner SSH client (Go)"]
+    assert len(v.reasons) <= 4
+
+
+def test_busy_ip_adds_bot_weight_but_leaves_other_kinds_alone():
+    s = replay(load("human"))
+    weighed = c._weighed(s)
+    assert weighed.kind == "human"
+    s.recent_sessions = 12
+    assert any(x.key == "repeat_visits" and x.label == "bot" for x in c.signals(s))
+    # the 0.75 floor only lifts unknown or weaker bot verdicts
+    assert c.score(s).kind == "human"

@@ -32,6 +32,7 @@ class Session:
     geo: dict | None = None
     asn_org: str | None = None
     asn_category: str | None = None
+    recent_sessions: int = 0  # sessions from this ip_hash in the last hour, this one included
     started_at: float | None = None
     last_ts: float | None = None
     status: str = "approaching"

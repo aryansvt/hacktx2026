@@ -34,7 +34,9 @@ Passthrough events keep the trap's `event_id`. Events brain makes itself use a u
 
 **Classifier** (`classifier.py`). Plain rules, no trained model. Each signal is a small function that returns a label, a weight key and a reason. Weights live in `WEIGHTS` at the top of the file. The winner's share of the total weight, scaled down until there's enough evidence (`MIN_EVIDENCE`), is the confidence. A session stays `unknown` until it has run a command, hit a tripwire or made 3+ login attempts, and the winner has at least two signals behind it. The top 2 to 4 reasons go out with the event.
 
-One exception: a quick login-only scan. If a session ends within `QUICK_SCAN_S` (5 seconds) after one or more logins and no commands, and its SSH client is a scripting library (Go, libssh, paramiko, JSch, AsyncSSH, Twisted, ZGrab and similar), it's labeled `bot` at 0.7 with reasons like "scanner SSH client (Go)" and "tried 1 login in under a second, then left". OpenSSH, PuTTY and unknown clients still stay `unknown`. On `session_end`, the `classified` event goes out before the `session_end` event so the globe and the story use the final label.
+One exception: a quick login-only scan. If a session ends within `QUICK_SCAN_S` (5 seconds) after one or more logins and no commands, and its SSH client is a scripting library (Go, libssh, paramiko, JSch, AsyncSSH, Twisted, ZGrab and similar), it's labeled `bot` at 0.7 with reasons like "scanner SSH client (Go)" and "tried 1 login in under a second, then left". OpenSSH, PuTTY and unknown clients still stay `unknown`.
+
+The other exception: an IP that keeps coming back. Brain keeps a sorted set per `ip_hash` in Redis (`brain:visits:<ip_hash>`, session ids scored by start time, one-hour TTL). When `REPEAT_VISITS` (10) or more wild sessions from one `ip_hash` started in the last hour, an ended session is labeled `bot` at 0.75 with "connected N times in the last hour" as the first reason, whatever its SSH client. The count is taken when a session starts and again at `session_end`, so visits that arrive meanwhile count too. It also adds bot weight to the normal score. The 0.75 label only replaces an `unknown` or weaker `bot` verdict, never a human or agent one. Guest, team and mock sessions aren't counted, since people at our table can share one IP. On `session_end`, the `classified` event goes out before the `session_end` event so the globe and the story use the final label.
 
 | Signal | Leans | Why |
 | --- | --- | --- |
@@ -51,6 +53,7 @@ One exception: a quick login-only scan. If a session ends within `QUICK_SCAN_S` 
 | OpenSSH / PuTTY client | human + agent | interactive |
 | rapid failed logins, dictionary usernames | bot | credential spraying |
 | hosting network, research scanner network | bot | rented boxes and scanners |
+| 10+ sessions from one `ip_hash` in the last hour | bot | people don't reconnect that often |
 
 To tune it, change a weight or threshold, then run `python -m pytest tests/test_classifier.py`. The bot, human and agent fixtures in `tests/fixtures/` pin the expected labels.
 
@@ -107,6 +110,7 @@ TIGER_DATABASE_URL=... REDIS_URL=... python brain/scripts/backfill_classify.py
 
 - Public events have no raw IP or network owner, so the hosting and scanner network signals are missing from the rerun. Everything else the classifier reads is stored.
 - Session timing only uses events the trap saw. Story and dossier events are stamped later and would make a 0.3 second scan look slow.
+- Repeat visits are counted from the `sessions` table: wild sessions from the same `ip_hash` that started in the hour before the session ended. Same window and rule as the live Redis count.
 - The new event gets the session's latest stored timestamp. That way the backend takes the new label without moving the session's `last_seen`.
 - Event ids are derived from the session id, so running it twice never double counts.
 

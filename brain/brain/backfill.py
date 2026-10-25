@@ -2,6 +2,7 @@
 
 run it with brain/scripts/backfill_classify.py. public events have no raw ip or asn,
 so network signals are missing here; everything else the classifier reads is stored.
+repeat visits are counted from the sessions table, like the live tracker does in redis.
 """
 
 from __future__ import annotations
@@ -14,15 +15,25 @@ from hacktx_contracts import parse_event
 from . import classifier
 from .output import derived_id
 from .session import Session, parse_ts
+from .visits import WINDOW_S
 from .worker import EVENTS, EVENTS_MAXLEN
 
 # events the trap saw; brain-made ones (classified, dossier, story) come later and would stretch timing
 TRAP_TYPES = {"session_start", "login_fail", "login_success", "command", "tripwire", "session_end"}
 
+# recent_sessions: wild sessions from the same ip_hash that started in the hour before this one ended
 UNKNOWN_ENDED = """
-select session_id from sessions
-where status = 'ended' and attacker->>'kind' = 'unknown'
-order by started_at
+select s.session_id,
+       case when s.source = 'wild' then (
+           select count(*) from sessions o
+           where o.source = 'wild'
+             and o.attacker->>'ip_hash' = s.attacker->>'ip_hash'
+             and o.started_at >= coalesce(s.ended_at, s.last_seen) - make_interval(secs => $1::int)
+             and o.started_at <= coalesce(s.ended_at, s.last_seen)
+       ) else 0 end as recent_sessions
+from sessions s
+where s.status = 'ended' and s.attacker->>'kind' = 'unknown'
+order by s.started_at
 """
 SESSION_EVENTS = 'select data from events where session_id = $1 order by "timestamp", event_id'
 
@@ -51,11 +62,13 @@ def session_from_events(events: list[dict]) -> Session:
     return s
 
 
-def classified_event(events: list[dict]) -> dict | None:
+def classified_event(events: list[dict], recent_sessions: int = 0) -> dict | None:
     """a classified event for the session, or None if it still scores unknown."""
     if not events:
         return None
-    verdict = classifier.score(session_from_events(events))
+    s = session_from_events(events)
+    s.recent_sessions = recent_sessions
+    verdict = classifier.score(s)
     if verdict.kind == "unknown":
         return None
     latest = events[-1]
@@ -75,19 +88,19 @@ def classified_event(events: list[dict]) -> dict | None:
     return ev
 
 
-async def stored_sessions(pool) -> AsyncIterator[list[dict]]:
-    """events of every ended session still unknown, one session at a time, in time order."""
-    for row in await pool.fetch(UNKNOWN_ENDED):
+async def stored_sessions(pool) -> AsyncIterator[tuple[list[dict], int]]:
+    """(events, recent_sessions) of every ended session still unknown, one at a time, in time order."""
+    for row in await pool.fetch(UNKNOWN_ENDED, WINDOW_S):
         rows = await pool.fetch(SESSION_EVENTS, row["session_id"])
-        yield [r["data"] for r in rows]
+        yield [r["data"] for r in rows], row["recent_sessions"]
 
 
-async def backfill(sessions: AsyncIterator[list[dict]], redis, dry_run: bool = False) -> dict:
+async def backfill(sessions: AsyncIterator[tuple[list[dict], int]], redis, dry_run: bool = False) -> dict:
     """classify each session; unless dry_run, write new classified events to the events stream."""
     counts = {"checked": 0, "classified": 0, "still_unknown": 0, "by_kind": {}}
-    async for events in sessions:
+    async for events, recent in sessions:
         counts["checked"] += 1
-        ev = classified_event(events)
+        ev = classified_event(events, recent)
         if ev is None:
             counts["still_unknown"] += 1
             continue

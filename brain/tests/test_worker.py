@@ -166,3 +166,78 @@ async def test_dropper_sequence_goes_critical():
     assert threats[3:] == ["critical", "critical"]
     s = await brain.store.get(start["session_id"])
     assert s.written == [".d"] and s.downloads == []
+
+
+# ---- repeat visitors ----
+
+def _visit(sid, start, client="SSH-2.0-OpenSSH_9.6p1", source="wild", ip="192.0.2.40", end_after=20.0):
+    """one login-only session as raw events, start is epoch seconds."""
+    from brain.session import fmt_ts
+    base = {"session_id": sid, "source": source, "protocol": "ssh", "src_ip": ip}
+    return [
+        {**base, "event_id": w.derived_id(sid, "start"), "type": "session_start", "timestamp": fmt_ts(start),
+         "detail": {"client": client}},
+        {**base, "event_id": w.derived_id(sid, "login"), "type": "login_fail", "timestamp": fmt_ts(start + 1),
+         "detail": {"username": "root", "success": False}},
+        {**base, "event_id": w.derived_id(sid, "end"), "type": "session_end",
+         "timestamp": fmt_ts(start + end_after), "detail": {"duration_s": end_after, "command_count": 0}},
+    ]
+
+
+T0 = 1_792_000_000.0
+
+
+async def _run(brain, raws):
+    out = []
+    for e in raws:
+        out += await brain.handle(e)
+    return out
+
+
+async def test_tenth_visit_in_an_hour_is_a_bot():
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    for i in range(9):
+        out = await _run(brain, _visit(f"ssh-v{i}", T0 + i * 300))
+        assert all(ev["attacker"]["kind"] == "unknown" for ev in out)
+    out = await _run(brain, _visit("ssh-v9", T0 + 9 * 300))
+    cls = [ev for ev in out if ev["type"] == "classified"]
+    assert len(cls) == 1 and out[-1]["type"] == "session_end"
+    assert cls[0]["attacker"]["kind"] == "bot" and cls[0]["attacker"]["confidence"] == 0.75
+    assert cls[0]["detail"]["reasons"][0] == "connected 10 times in the last hour"
+    for ev in out:
+        VALIDATOR.validate(ev)
+    # tracked by ip_hash only, never the raw ip
+    keys = [k.decode() for k in await r.keys("brain:visits:*")]
+    assert keys == [f"brain:visits:{cls[0]['attacker']['ip_hash']}"]
+
+
+async def test_visits_older_than_an_hour_drop_out():
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    for i in range(9):
+        await _run(brain, _visit(f"ssh-old{i}", T0 + i))
+    out = await _run(brain, _visit("ssh-late", T0 + 3700))
+    assert all(ev["attacker"]["kind"] == "unknown" for ev in out)
+    s = await brain.store.get("ssh-late")
+    assert s.recent_sessions == 1
+
+
+async def test_session_end_counts_visits_that_arrived_meanwhile():
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    long = _visit("ssh-long", T0, end_after=600)
+    await _run(brain, long[:2])
+    for i in range(9):
+        await _run(brain, _visit(f"ssh-v{i}", T0 + 10 + i))
+    out = await brain.handle(long[2])
+    assert out[0]["type"] == "classified" and out[0]["attacker"]["kind"] == "bot"
+
+
+async def test_guest_and_team_visits_are_not_counted():
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    for i in range(12):
+        out = await _run(brain, _visit(f"ssh-g{i}", T0 + i, source="guest"))
+        assert all(ev["attacker"]["kind"] == "unknown" for ev in out)
+    assert await r.keys("brain:visits:*") == []

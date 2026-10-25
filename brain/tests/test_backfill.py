@@ -85,7 +85,7 @@ def test_commands_are_rebuilt():
 
 async def sessions(*groups):
     for g in groups:
-        yield g
+        yield g if isinstance(g, tuple) else (g, 0)
 
 
 async def test_dry_run_only_counts():
@@ -103,3 +103,40 @@ async def test_backfill_writes_classified_events():
     assert [e["session_id"] for e in written] == ["a", "b"]
     for e in written:
         VALIDATOR.validate(e)
+
+
+def test_busy_ip_classifies_an_openssh_session():
+    events = rumlang(client="SSH-2.0-OpenSSH_9.6")
+    assert b.classified_event(events, recent_sessions=9) is None
+    out = b.classified_event(events, recent_sessions=11)
+    VALIDATOR.validate(out)
+    assert out["attacker"]["kind"] == "bot" and out["attacker"]["confidence"] == 0.75
+    assert out["detail"]["reasons"][0] == "connected 11 times in the last hour"
+
+
+async def test_backfill_passes_visit_counts_through():
+    r = fakeredis.FakeAsyncRedis()
+    openssh = "SSH-2.0-OpenSSH_9.6"
+    counts = await b.backfill(sessions((rumlang("a", openssh), 10), (rumlang("b", openssh), 3)), r)
+    assert counts == {"checked": 2, "classified": 1, "still_unknown": 1, "by_kind": {"bot": 1}}
+
+
+class FakePool:
+    def __init__(self, sessions, events):
+        self.sessions, self.events, self.queries = sessions, events, []
+
+    async def fetch(self, sql, *args):
+        self.queries.append((sql, args))
+        if args and isinstance(args[0], str):
+            return [{"data": e} for e in self.events[args[0]]]
+        return self.sessions
+
+
+async def test_stored_sessions_yield_events_with_visit_counts():
+    pool = FakePool([{"session_id": "a", "recent_sessions": 12}, {"session_id": "b", "recent_sessions": 0}],
+                    {"a": rumlang("a"), "b": rumlang("b")})
+    got = [(events[0]["session_id"], n) async for events, n in b.stored_sessions(pool)]
+    assert got == [("a", 12), ("b", 0)]
+    sql, args = pool.queries[0]
+    # same one hour window and wild-only rule as the live tracker
+    assert args == (3600,) and "source = 'wild'" in sql

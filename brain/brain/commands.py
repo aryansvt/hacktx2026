@@ -46,6 +46,47 @@ COMMON = {
     "cmp", "patch", "openssl", "ssh-keygen", "lsmod", "modprobe", "sysctl", "ulimit",
     "source", ".", "exec", "eval", "read", "wait", "jobs", "fg", "bg", "disown",
     "cls", "dir", "ver", "tasklist", "ftp", "sshd", "init", "mail", "chsh", "visudo",
+    "setsid", "screen", "tmux", "strace", "ltrace", "ldd", "ldconfig", "chroot", "mkfifo",
+    "mknod", "insmod", "rmmod", "groupadd", "cron", "crond", "systemd", "udevadm", "ip6tables",
+    "nft", "tcpdump", "nmap", "masscan", "zmap", "socat", "wall", "write", "base32",
+}
+
+# bash builtins not already in COMMON
+BUILTINS = {
+    "bind", "break", "builtin", "caller", "command", "compgen", "complete", "compopt",
+    "continue", "declare", "dirs", "getopts", "hash", "let", "local", "mapfile", "popd",
+    "pushd", "readarray", "readonly", "return", "shift", "shopt", "suspend", "times", "trap",
+    "typeset", "umask", "unalias",
+}
+
+# everyday english words that turn up as file names and say nothing on a web search
+ENGLISH_WORDS = {
+    "filter", "update", "updates", "upgrade", "install", "installer", "setup", "config",
+    "configure", "start", "stop", "restart", "script", "scripts", "main", "data", "file",
+    "files", "check", "checker", "clean", "cleaner", "build", "server", "client", "service",
+    "backup", "temp", "list", "index", "home", "user", "users", "admin", "root", "system",
+    "network", "download", "upload", "payload", "agent", "loader", "runner", "launch",
+    "launcher", "monitor", "worker", "manager", "helper", "tool", "tools", "test", "tests",
+    "demo", "sample", "example", "hello", "world", "print", "output", "input", "result",
+    "results", "report", "status", "debug", "error", "errors", "info", "help", "readme",
+    "license", "notes", "todo", "note", "work", "job", "jobs", "task", "tasks", "cleanup",
+    "deploy", "remove", "delete", "kill", "killer", "watch", "watchdog", "guard", "patch",
+    "fix", "sync", "copy", "move", "send", "sender", "receive", "proxy", "socket", "connect",
+    "bridge", "tunnel", "scan", "scanner", "crawl", "crawler", "spider", "bot", "bots",
+    "brute", "force", "attack", "exploit", "shell", "shells", "door", "backdoor", "trojan",
+    "virus", "malware", "miner", "mining", "crypto", "wallet", "pool", "web", "site", "page",
+    "pages", "image", "images", "video", "audio", "music", "photo", "photos", "document",
+    "documents", "local", "remote", "global", "public", "private", "secret", "secure",
+    "security", "access", "login", "logout", "session", "token", "password", "passwords",
+    "random", "simple", "basic", "default", "custom", "special", "standard", "normal",
+    "final", "first", "last", "next", "previous", "new", "old", "latest", "current", "stable",
+    "release", "version", "linux", "unix", "kernel", "boot", "power", "speed", "fast",
+    "slow", "quick", "small", "large", "little", "big", "good", "best", "nice", "cool",
+    "free", "open", "close", "read", "write", "load", "save", "store", "cache", "queue",
+    "stack", "table", "tables", "time", "date", "clock", "timer", "count", "counter",
+    "number", "value", "values", "string", "text", "word", "words", "name", "names",
+    "path", "paths", "link", "links", "node", "nodes", "tree", "graph", "map", "maps",
+    "game", "games", "play", "player", "chat", "message", "messages", "mail", "email",
 }
 
 
@@ -207,20 +248,15 @@ def pipes_to_shell(line: str) -> bool:
     return bool(_SHELL_PIPE.search(line or ""))
 
 
+def _distinctive(name: str) -> bool:
+    """worth a web search: not a builtin, standard command, common word or tiny name."""
+    stem = name.rsplit(".", 1)[0] if "." in name[1:] else name
+    stem = stem.lstrip(".").lower()
+    return (len(stem) >= 4 and stem not in COMMON and stem not in BUILTINS and stem not in ENGLISH_WORDS
+            and bool(re.fullmatch(r"[a-z0-9_.-]+", stem)) and not stem.isdigit())
+
+
 def tool_names(line: str) -> list[str]:
-    """unusual program names in a line, e.g. xmrig or kinsing."""
-    names = []
-    for seg in segments(line):
-        n = command_name(seg)
-        if n.startswith("./"):
-            n = n[2:]
-        names.append(posixpath.basename(n))
-    names += executed_files(line) + downloaded_files(line)
-    out = []
-    for n in names:
-        stem = n.rsplit(".", 1)[0] if "." in n[1:] else n
-        stem = stem.lstrip(".")
-        if (len(stem) >= 4 and stem.lower() not in COMMON
-                and re.fullmatch(r"[A-Za-z0-9_.-]+", stem) and not stem.isdigit()):
-            out.append(n)
-    return list(dict.fromkeys(out))
+    """programs a line runs, chmods +x or downloads, with distinctive names, e.g. xmrig or kinsing."""
+    names = executed_files(line) + chmodded_executable(line) + downloaded_files(line)
+    return list(dict.fromkeys(n for n in names if _distinctive(n)))

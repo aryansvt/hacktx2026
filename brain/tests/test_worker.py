@@ -123,3 +123,20 @@ async def test_run_survives_redis_blips(monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await brain.run()
     assert calls["n"] == 4
+
+
+async def test_quick_scan_classified_before_session_end():
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    raws = load_fixture("scanner")
+    for e in raws[:-1]:
+        out = await brain.handle(e)
+        assert all(ev["attacker"]["kind"] == "unknown" for ev in out)
+    out = await brain.handle(raws[-1])
+    assert [ev["type"] for ev in out] == ["classified", "session_end"]
+    assert out[0]["attacker"]["kind"] == "bot" and out[0]["attacker"]["confidence"] == 0.7
+    assert "scanner SSH client (Go)" in out[0]["detail"]["reasons"]
+    for ev in out:
+        VALIDATOR.validate(ev)
+    s = await brain.store.get(raws[0]["session_id"])
+    assert s.kind == "bot"

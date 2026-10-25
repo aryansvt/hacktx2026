@@ -1,0 +1,40 @@
+[
+  {
+    "event_id": "3f0c2a10-7b1e-5d4a-9c11-6a2b0e5f7d01",
+    "session_id": "ssh-scan0001",
+    "type": "session_start",
+    "timestamp": "2026-10-24T19:12:07.000Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.40",
+    "detail": {
+      "client": "SSH-2.0-Go"
+    }
+  },
+  {
+    "event_id": "3f0c2a10-7b1e-5d4a-9c11-6a2b0e5f7d02",
+    "session_id": "ssh-scan0001",
+    "type": "login_fail",
+    "timestamp": "2026-10-24T19:12:07.150Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.40",
+    "detail": {
+      "username": "root",
+      "success": false
+    }
+  },
+  {
+    "event_id": "3f0c2a10-7b1e-5d4a-9c11-6a2b0e5f7d03",
+    "session_id": "ssh-scan0001",
+    "type": "session_end",
+    "timestamp": "2026-10-24T19:12:07.300Z",
+    "source": "wild",
+    "protocol": "ssh",
+    "src_ip": "192.0.2.40",
+    "detail": {
+      "duration_s": 0.3,
+      "command_count": 0
+    }
+  }
+]

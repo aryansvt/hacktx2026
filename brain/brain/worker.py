@@ -87,8 +87,10 @@ class Brain:
             out = [build(typ, s, raw["timestamp"], public_detail(raw, s, techniques), raw["event_id"])]
             if emit_cls:
                 s.cls_kind, s.cls_conf = verdict.kind, verdict.confidence
-                out.append(build("classified", s, raw["timestamp"], {"reasons": verdict.reasons},
-                                 derived_id(raw["event_id"], "classified")))
+                cls = build("classified", s, raw["timestamp"], {"reasons": verdict.reasons},
+                            derived_id(raw["event_id"], "classified"))
+                # the final verdict goes out before session_end so the globe and story see it
+                out.insert(0 if typ == "session_end" else len(out), cls)
             # picked under the lock so two events can't start the same lookup
             targets = self.rep.targets(s, raw) if self.rep is not None else []
             await self.store.save(s)

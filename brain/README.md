@@ -34,6 +34,8 @@ Passthrough events keep the trap's `event_id`. Events brain makes itself use a u
 
 **Classifier** (`classifier.py`). Plain rules, no trained model. Each signal is a small function that returns a label, a weight key and a reason. Weights live in `WEIGHTS` at the top of the file. The winner's share of the total weight, scaled down until there's enough evidence (`MIN_EVIDENCE`), is the confidence. A session stays `unknown` until it has run a command, hit a tripwire or made 3+ login attempts, and the winner has at least two signals behind it. The top 2 to 4 reasons go out with the event.
 
+One exception: a quick login-only scan. If a session ends within `QUICK_SCAN_S` (5 seconds) after one or more logins and no commands, and its SSH client is a scripting library (Go, libssh, paramiko, JSch, AsyncSSH, Twisted, ZGrab and similar), it's labeled `bot` at 0.7 with reasons like "scanner SSH client (Go)" and "tried 1 login in under a second, then left". OpenSSH, PuTTY and unknown clients still stay `unknown`. On `session_end`, the `classified` event goes out before the `session_end` event so the globe and the story use the final label.
+
 | Signal | Leans | Why |
 | --- | --- | --- |
 | sub-second, regular gaps between commands | bot | scripts don't pause |

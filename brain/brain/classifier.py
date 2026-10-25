@@ -58,6 +58,10 @@ STEADY_MEDIAN_S = (1.5, 25.0)
 STEADY_CV = 0.6
 IRREGULAR_CV = 0.8
 
+# login-only scans: scripted client, no commands, gone within a few seconds
+QUICK_SCAN_S = 5.0
+QUICK_SCAN_CONF = 0.7
+
 
 @dataclass(frozen=True)
 class Signal:
@@ -92,7 +96,7 @@ BOT_SCRIPTS = [
 ]
 
 BOT_CLIENTS = re.compile(r"\bgo\b|libssh|jsch|zgrab|nmap|masscan|sshlib|dropbear_20(?:1[0-5])", re.I)
-LIB_CLIENTS = re.compile(r"paramiko|asyncssh|twisted|russh|ssh2-js|node", re.I)
+LIB_CLIENTS = re.compile(r"paramiko|asyncssh|twisted|russh|ssh2-js|node|phpseclib|sshj|net::ssh", re.I)
 INTERACTIVE_CLIENTS = re.compile(r"openssh|putty|termius|securecrt|mobaxterm|bitvise|winscp", re.I)
 
 DICTIONARY_USERS = {"root", "admin", "ubnt", "pi", "oracle", "test", "user", "support", "guest",
@@ -257,6 +261,23 @@ def login_signals(s: Session) -> list[Signal]:
     return out
 
 
+def quick_scan(s: Session) -> Verdict | None:
+    """a scripted client that tried a few logins, ran nothing and left fast."""
+    if not s.ended or s.commands or s.tripwires or not s.logins:
+        return None
+    short = (s.client or "").replace("SSH-2.0-", "")[:40]
+    if not (BOT_CLIENTS.search(short) or LIB_CLIENTS.search(short)):
+        return None
+    took = (s.last_ts or 0.0) - (s.started_at or 0.0)
+    if took > QUICK_SCAN_S:
+        return None
+    n = len(s.logins)
+    when = "under a second" if took < 1 else f"{took:.1f}s"
+    reasons = [f"scanner SSH client ({short})", f"tried {n} login{'s' if n > 1 else ''} in {when}, then left"]
+    reasons += [x.reason for x in asn_signals(s)]
+    return Verdict("bot", QUICK_SCAN_CONF, reasons)
+
+
 def tripwire_signals(s: Session) -> list[Signal]:
     if not s.tripwires:
         return []
@@ -289,6 +310,15 @@ UNKNOWN = Verdict("unknown", 0.0, ["not enough activity yet"])
 
 
 def score(s: Session) -> Verdict:
+    v = _weighed(s)
+    quick = quick_scan(s)
+    # a quick scan beats too little evidence or a weaker bot verdict
+    if quick and (v.kind == "unknown" or (v.kind == "bot" and v.confidence < quick.confidence)):
+        return quick
+    return v
+
+
+def _weighed(s: Session) -> Verdict:
     has_activity = bool(s.commands) or bool(s.tripwires) or len(s.logins) >= 3
     if not has_activity:
         return UNKNOWN

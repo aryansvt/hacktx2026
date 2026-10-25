@@ -144,3 +144,59 @@ def test_shared_signals_alone_stay_unknown():
     s.add_login(0, "admin", True)
     s.add_command(1, "pwd", "/root")
     assert c.score(s) == c.UNKNOWN
+
+
+# ---- quick login-only scans ----
+
+def _scan(client, logins=1, end_at=0.3, ended=True):
+    s = Session("x", client=client, started_at=0.0, last_ts=0.0)
+    for i in range(logins):
+        s.add_login(end_at * (i + 1) / (logins + 1), "root", False)
+    if ended:
+        s.observe({"type": "session_end", "timestamp": "1970-01-01T00:00:00Z", "detail": {}})
+        s.last_ts = end_at
+    return s
+
+
+def test_rumlang_style_scan_is_a_bot():
+    v = c.score(replay(load("scanner")))
+    assert v.kind == "bot"
+    assert v.confidence == pytest.approx(0.7)
+    assert "scanner SSH client (Go)" in v.reasons
+    assert "tried 1 login in under a second, then left" in v.reasons
+
+
+def test_quick_scan_waits_for_session_end():
+    assert c.score(replay(load("scanner")[:2])) == c.UNKNOWN
+
+
+@pytest.mark.parametrize("client", ["SSH-2.0-libssh_0.9.6", "SSH-2.0-paramiko_3.4.0", "SSH-2.0-JSCH-0.1.54",
+                                    "SSH-2.0-AsyncSSH_2.14.0", "SSH-2.0-Twisted_22.10.0", "SSH-2.0-ZGrab ZGrab SSH Survey"])
+def test_quick_scan_matches_scripting_clients(client):
+    v = c.score(_scan(client, logins=2, end_at=1.4))
+    assert v.kind == "bot"
+    assert "tried 2 logins in 1.4s, then left" in v.reasons
+
+
+@pytest.mark.parametrize("client", ["SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13", "SSH-2.0-PuTTY_Release_0.80", None])
+def test_quick_scan_ignores_normal_clients(client):
+    assert c.score(_scan(client)) == c.UNKNOWN
+
+
+def test_quick_scan_needs_to_be_quick():
+    assert c.score(_scan("SSH-2.0-Go", end_at=c.QUICK_SCAN_S + 1)) == c.UNKNOWN
+
+
+def test_quick_scan_needs_a_login_and_no_commands():
+    assert c.score(_scan("SSH-2.0-Go", logins=0)) == c.UNKNOWN
+    s = _scan("SSH-2.0-Go")
+    s.add_command(0.2, "uname -a", "")
+    assert c.quick_scan(s) is None
+
+
+def test_quick_scan_lifts_a_weak_bot_verdict():
+    s = _scan("SSH-2.0-Go", logins=3, end_at=1.2)
+    assert c._weighed(s).confidence < c.QUICK_SCAN_CONF
+    v = c.score(s)
+    assert v.kind == "bot" and v.confidence == pytest.approx(0.7)
+    assert "tried 3 logins in 1.2s, then left" in v.reasons

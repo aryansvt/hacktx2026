@@ -10,7 +10,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SCHEMAS = HERE.parent
 PKG = HERE / "hacktx_contracts"
-NAMES = ["event", "raw_event", "session_summary", "stats"]
+NAMES = ["event", "raw_event", "session_summary", "stats", "attacker_summary"]
 
 HEADER = "# generated from contracts/{name}.schema.json by contracts/py/generate.py. don't edit."
 

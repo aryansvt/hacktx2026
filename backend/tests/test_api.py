@@ -131,3 +131,79 @@ def test_cors(app):
             assert resp.headers.get("access-control-allow-origin") == origin
         resp = client.get("/health", headers={"Origin": "https://evil.com"})
         assert "access-control-allow-origin" not in resp.headers
+
+
+H1, H2, H3 = "1" * 64, "2" * 64, "3" * 64
+
+
+@pytest.fixture
+def visitors(store):
+    now = datetime.now(timezone.utc)
+    t = lambda s: now - timedelta(seconds=s)  # noqa: E731
+    seed(store, [
+        # H1: three wild visits, the newest one classified later
+        make_event("session_start", "h1-old", t(300), ip_hash=H1, kind="unknown", country="CH"),
+        make_event("session_end", "h1-old", t(299), ip_hash=H1, kind="bot", country="CH"),
+        make_event("session_start", "h1-mid", t(200), ip_hash=H1, kind="unknown"),
+        make_event("session_start", "h1-new", t(100), ip_hash=H1, kind="unknown", country="DE"),
+        make_event("classified", "h1-new", t(50), ip_hash=H1, kind="human", reputation="unknown", country="DE"),
+        # H2: one visit, the most recent activity overall
+        make_event("session_start", "h2-only", t(10), ip_hash=H2, kind="agent", country="BR"),
+        # H3: mock only, older
+        make_event("session_start", "h3-mock", t(400), ip_hash=H3, source="mock", kind="bot", country="JP"),
+        # no ip hash, never listed
+        make_event("session_start", "nohash", t(5), ip_hash=None, kind="bot"),
+    ])
+
+
+def test_attackers_grouped_and_newest_first(app, visitors):
+    with TestClient(app) as client:
+        resp = client.get("/attackers")
+    assert resp.status_code == 200
+    body = resp.json()
+    v = validator("attacker_summary")
+    for row in body:
+        v.validate(row)
+    assert [a["ip_hash"] for a in body] == [H2, H1, H3]
+    h1 = body[1]
+    assert h1["visits"] == 3
+    assert h1["session_ids"] == ["h1-new", "h1-mid", "h1-old"]
+    assert h1["latest_session_id"] == "h1-new"
+    assert h1["first_seen"] < h1["last_seen"]
+    # profile and place come from the most recent session
+    assert h1["geo"]["country"] == "DE"
+    assert h1["attacker"] == {"kind": "human", "confidence": 0.9, "reputation": "unknown",
+                              "family": None, "threat": "high"}
+
+
+def test_attackers_skip_null_ip_hash_and_leak_nothing(app, visitors):
+    with TestClient(app) as client:
+        resp = client.get("/attackers")
+    ids = {sid for a in resp.json() for sid in a["session_ids"]}
+    assert "nohash" not in ids
+    no_raw_ips(resp.text)
+    assert "client" not in resp.text
+
+
+def test_attackers_limit_and_source(app, visitors):
+    with TestClient(app) as client:
+        assert [a["ip_hash"] for a in client.get("/attackers?limit=1").json()] == [H2]
+        assert [a["ip_hash"] for a in client.get("/attackers?source=mock").json()] == [H3]
+        wild = client.get("/attackers?source=wild").json()
+        assert [a["ip_hash"] for a in wild] == [H2, H1]
+        assert client.get("/attackers?limit=500").status_code == 200
+        assert client.get("/attackers?limit=0").status_code == 422
+        assert client.get("/attackers?limit=501").status_code == 422
+        assert client.get("/attackers?source=evil").status_code == 422
+
+
+def test_attackers_cap_session_ids_at_50(app, store):
+    now = datetime.now(timezone.utc)
+    seed(store, [make_event("session_start", f"s{i:02d}", now + timedelta(seconds=i), ip_hash=H1)
+                 for i in range(55)])
+    with TestClient(app) as client:
+        row = client.get("/attackers").json()[0]
+    validator("attacker_summary").validate(row)
+    assert row["visits"] == 55
+    assert len(row["session_ids"]) == 50
+    assert row["session_ids"][0] == "s54" and row["session_ids"][-1] == "s05"

@@ -4,7 +4,7 @@ Runs on core. A FastAPI app that:
 
 - takes raw events from the trap on `POST /ingest` and writes them to Redis stream `raw`
 - reads enriched public events from Redis stream `events` (written by brain), stores them in Tiger Data and pushes them to every client on `ws /live`
-- serves sessions and stats for the frontend
+- serves sessions, attackers and stats for the frontend
 
 ## Endpoints
 
@@ -14,6 +14,7 @@ Runs on core. A FastAPI app that:
 | WS | `/live` | Every public event (`contracts/event.schema.json`) as a JSON text message, plus `{"type":"ping"}` every 20 seconds. Ignore pings. |
 | GET | `/sessions?limit=50&source=wild` | Newest sessions first, as `session_summary` objects. `limit` 1 to 200, `source` optional. |
 | GET | `/sessions/{id}` | `{"session": <summary>, "events": [<event>, ...]}`, events in time order, for replay. 404 if unknown. |
+| GET | `/attackers?limit=100&source=wild` | One row per attacker (`ip_hash`), most recent activity first, as `attacker_summary` objects. `limit` 1 to 500, `source` optional. See below. |
 | GET | `/stats` | `contracts/stats.schema.json`. Wild traffic only. Cached for 5 seconds. |
 | GET | `/health` | `{"status","redis","db"}`. 503 if either is down. |
 
@@ -32,6 +33,19 @@ Nothing returns raw IPs. Events from brain are checked against the contract befo
 The consumer reads stream `events` with consumer group `backend`, writes each event to the database, broadcasts it, then acks it. Invalid events are logged and acked so they don't block the stream. If the database write fails, the event is still broadcast but stays pending, and it gets retried on the next start. Writes are idempotent on `event_id`, so a retry never double counts.
 
 Each websocket client has its own queue of 256 messages. Broadcasting never waits on a socket: if a client's queue is full, or one send takes more than 5 seconds, that client is dropped (close code 1013) and the frontend should reconnect.
+
+## Attackers
+
+`GET /attackers` groups stored sessions by `attacker.ip_hash`. Sessions with a null `ip_hash` are skipped. With `source` set, only sessions from that source are grouped, so the same IP can show different counts per source.
+
+Each row has:
+
+- `visits`: how many stored sessions that hash has (only the last 7 days are kept)
+- `first_seen`: earliest session start
+- `last_seen`, `latest_session_id`, `source`, `geo` and `attacker` (`kind`, `confidence`, `reputation`, `family`, `threat`): taken from the session with the most recent activity
+- `session_ids`: newest activity first, capped at 50, so `session_ids[0]` is always `latest_session_id`
+
+Rows are ordered by `last_seen`, newest first. The grouping runs in SQL with a window function over `sessions`, so it scans the table on every call. That is fine at 7 days of honeypot traffic. Add an index on `(attacker->>'ip_hash', last_seen)` if it gets slow.
 
 ## Session status
 
@@ -108,3 +122,5 @@ The tests use fakeredis and an in-memory store, so they don't need any services.
 ```bash
 TEST_DATABASE_URL=postgresql://postgres:pw@localhost:5432/postgres .venv/bin/python -m pytest
 ```
+
+Known flaky: the websocket tests in `tests/test_live.py` that use `TestClient` (`test_events_are_persisted_and_broadcast_to_every_client`, `test_invalid_event_is_never_broadcast`, `test_ping_is_sent`) sometimes fail with `CancelledError` while the test client closes the websocket (inside Starlette's `TestClient.__exit__`). It's a teardown race in the test client, not a broadcast bug. Seen in a few percent of full-suite runs on Windows. Rerun if one fails alone.

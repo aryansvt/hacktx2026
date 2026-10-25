@@ -1,0 +1,26 @@
+{
+  "ip_hash": "3f1c9a7e0b5d2c8f4a6e1b9d7c3f5a2e8b0d4c6f1a3e5b7d9c2f4a6e8b0d1c3e",
+  "visits": 3,
+  "first_seen": "2026-10-24T17:40:02.118Z",
+  "last_seen": "2026-10-24T18:03:11.250Z",
+  "latest_session_id": "ssh-7f3a9c21",
+  "source": "wild",
+  "geo": {
+    "lat": 47.45,
+    "lon": 8.53,
+    "country": "CH",
+    "city": "Rümlang"
+  },
+  "attacker": {
+    "kind": "bot",
+    "confidence": 0.7,
+    "reputation": "malicious",
+    "family": "mirai",
+    "threat": "low"
+  },
+  "session_ids": [
+    "ssh-7f3a9c21",
+    "ssh-5b21e0d4",
+    "ssh-0c9e8a17"
+  ]
+}

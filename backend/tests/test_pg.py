@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 import asyncpg
 import pytest
 
+from app.attackers import to_row
 from app.sessions import to_summary
 from app.stats import build_stats
 from app.store import PgStore, run_migrations
@@ -121,3 +122,25 @@ async def test_cleanup_drops_sessions_past_retention(store):
     assert await store.cleanup() == 1
     assert await store.get_session("ancient") is None
     assert await store.get_session("fresh") is not None
+
+
+async def test_list_attackers(store):
+    now = datetime.now(timezone.utc)
+    h1, h2 = "1" * 64, "2" * 64
+    for i in range(52):
+        await store.persist(make_event("session_start", f"a{i:02d}", now + timedelta(seconds=i), ip_hash=h1))
+    await store.persist(make_event("classified", "a51", now + timedelta(seconds=60), ip_hash=h1, kind="human"))
+    await store.persist(make_event("session_start", "b0", now + timedelta(seconds=30), ip_hash=h2, source="mock"))
+    await store.persist(make_event("session_start", "nohash", now + timedelta(seconds=90), ip_hash=None))
+
+    rows = [to_row(r) for r in await store.list_attackers(100, None)]
+    v = validator("attacker_summary")
+    for r in rows:
+        v.validate(r)
+    assert [r["ip_hash"] for r in rows] == [h1, h2]
+    a = rows[0]
+    assert a["visits"] == 52 and a["latest_session_id"] == "a51"
+    assert len(a["session_ids"]) == 50 and a["session_ids"][0] == "a51" and a["session_ids"][-1] == "a02"
+    assert a["attacker"]["kind"] == "human"
+    assert [r["ip_hash"] for r in await store.list_attackers(100, "mock")] == [h2]
+    assert len(await store.list_attackers(1, None)) == 1

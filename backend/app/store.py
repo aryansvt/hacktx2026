@@ -15,6 +15,8 @@ log = logging.getLogger(__name__)
 MIGRATIONS = Path(__file__).resolve().parents[1] / "migrations"
 RETENTION = timedelta(days=7)
 ACTIVE_WINDOW = timedelta(minutes=5)
+# session ids listed per attacker on /attackers
+MAX_SESSION_IDS = 50
 # arbitrary constant so only one process migrates at a time
 MIGRATION_LOCK = 4_242_026
 
@@ -41,6 +43,7 @@ class Store(Protocol):
     async def ping(self) -> None: ...
     async def persist(self, event: dict[str, Any]) -> bool: ...
     async def list_sessions(self, limit: int, source: str | None) -> list[dict[str, Any]]: ...
+    async def list_attackers(self, limit: int, source: str | None) -> list[dict[str, Any]]: ...
     async def get_session(self, session_id: str) -> dict[str, Any] | None: ...
     async def session_events(self, session_id: str) -> list[dict[str, Any]]: ...
     async def stats(self) -> dict[str, Any]: ...
@@ -142,6 +145,37 @@ class PgStore:
             " order by started_at desc limit $1",
             limit,
             source,
+        )
+        return [dict(r) for r in rows]
+
+    async def list_attackers(self, limit: int, source: str | None) -> list[dict[str, Any]]:
+        """one row per ip_hash, profile from its most recent session. attackers.to_row shapes it."""
+        rows = await self.pool.fetch(
+            """
+            with ranked as (
+                select session_id, started_at, last_seen, source, geo, attacker,
+                       attacker->>'ip_hash' as ip_hash,
+                       row_number() over (
+                           partition by attacker->>'ip_hash' order by last_seen desc, session_id desc
+                       ) as rn
+                from sessions
+                where attacker->>'ip_hash' is not null and ($2::text is null or source = $2)
+            ), grouped as (
+                select ip_hash, count(*) as visits, min(started_at) as first_seen,
+                       array_agg(session_id order by rn) filter (where rn <= $3) as session_ids
+                from ranked
+                group by ip_hash
+            )
+            select g.ip_hash, g.visits, g.first_seen, r.last_seen, r.session_id as latest_session_id,
+                   r.source, r.geo, r.attacker, g.session_ids
+            from grouped g
+            join ranked r on r.ip_hash = g.ip_hash and r.rn = 1
+            order by r.last_seen desc, g.ip_hash desc
+            limit $1
+            """,
+            limit,
+            source,
+            MAX_SESSION_IDS,
         )
         return [dict(r) for r in rows]
 

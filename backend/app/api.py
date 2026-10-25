@@ -5,8 +5,9 @@ from typing import Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, WebSocket
 from fastapi.responses import JSONResponse
-from hacktx_contracts import SessionSummary, Stats
+from hacktx_contracts import AttackerSummary, SessionSummary, Stats
 
+from .attackers import to_row
 from .sessions import to_summary
 from .stats import build_stats
 
@@ -25,6 +26,16 @@ async def list_sessions(
 ) -> list[dict]:
     rows = await request.app.state.store.list_sessions(limit, source)
     return [to_summary(r) for r in rows]
+
+
+@router.get("/attackers", response_model=list[AttackerSummary])
+async def list_attackers(
+    request: Request,
+    limit: int = Query(100, ge=1, le=500),
+    source: Source | None = None,
+) -> list[dict]:
+    rows = await request.app.state.store.list_attackers(limit, source)
+    return [to_row(r) for r in rows]
 
 
 @router.get("/sessions/{session_id}")

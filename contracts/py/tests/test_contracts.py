@@ -6,6 +6,7 @@ from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ValidationError
 
 from hacktx_contracts import (
+    AttackerSummary,
     Event,
     RawEvent,
     SessionSummary,
@@ -25,6 +26,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "raw_event": RawEvent,
     "session_summary": SessionSummary,
     "stats": Stats,
+    "attacker_summary": AttackerSummary,
 }
 
 

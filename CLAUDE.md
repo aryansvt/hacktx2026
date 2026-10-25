@@ -18,7 +18,7 @@ attacker ──ssh:22 / http:80──> trap ──HTTPS POST /ingest──> core
 ```
 
 - `trap/` runs on its own isolated server ("trap"). Python + asyncssh SSH server on port 22, FastAPI fake web pages on port 80, and a fake shell (rules engine first, LLM fallback) over a virtual filesystem. It NEVER executes attacker input. It sends raw events to core over HTTPS: `POST https://api.<domain>/ingest` with header `Authorization: Bearer $INGEST_TOKEN`.
-- `backend/` runs on the "core" server. FastAPI: `POST /ingest` (writes raw events to Redis stream `raw`), `ws /live`, `GET /sessions`, `GET /sessions/{id}`, `GET /stats`. Stores everything in Tiger Data (Timescale Postgres).
+- `backend/` runs on the "core" server. FastAPI: `POST /ingest` (writes raw events to Redis stream `raw`), `ws /live`, `GET /sessions`, `GET /sessions/{id}`, `GET /attackers`, `GET /stats`. Stores everything in Tiger Data (Timescale Postgres).
 - `brain/` runs on core. Reads Redis stream `raw`, enriches events (geo, classification, SerpApi reputation, threat, technique mapping, dossiers, stories) and writes them to Redis stream `events`, which backend persists and broadcasts.
 - `world/` is the Next.js frontend, built separately by a teammate on the `world` branch. Don't create or edit anything in `world/`.
 - `infra/` holds Docker Compose files, Caddy config, and firewall scripts.
@@ -31,8 +31,9 @@ attacker ──ssh:22 / http:80──> trap ──HTTPS POST /ingest──> core
 - `contracts/raw_event.schema.json`: trap -> `/ingest` -> Redis `raw`.
 - `contracts/event.schema.json`: brain -> Redis `events` -> `ws /live`. This is the only event shape the frontend sees.
 - `contracts/session_summary.schema.json`: `GET /sessions` and `GET /sessions/{id}`.
+- `contracts/attacker_summary.schema.json`: `GET /attackers`.
 - `contracts/stats.schema.json`: `GET /stats`.
-- Schemas are the source of truth. After editing one, run `python contracts/py/generate.py` and commit the regenerated models. Never hand-edit `contracts/py/hacktx_contracts/{event,raw_event,session_summary,stats}.py`.
+- Schemas are the source of truth. After editing one, run `python contracts/py/generate.py` and commit the regenerated models. Never hand-edit `contracts/py/hacktx_contracts/{event,raw_event,session_summary,stats,attacker_summary}.py`.
 - Python services import models from `hacktx_contracts` (install with `pip install -e contracts/py`).
 - Tests: `cd contracts/py && python -m pytest`.
 

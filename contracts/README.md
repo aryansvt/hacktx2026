@@ -12,6 +12,8 @@ All schemas use JSON Schema draft 2020-12 and reject unknown fields, so a stray 
 
 **`session_summary.schema.json`** is one session as returned by `GET /sessions` and `GET /sessions/{id}`: when it started and ended, where it came from, who we think it is, how far it got (`approaching`, `at_gate`, `inside`, `ended`), failed logins, command count, and its story if one has been written.
 
+**`attacker_summary.schema.json`** is one attacker as returned by `GET /attackers`: every stored session from one `ip_hash` grouped into a single row, with a visit count, first and last seen times, the newest session's place and profile (`kind`, `confidence`, `reputation`, `family`, `threat`), and up to 50 session ids, newest first. It never has a raw IP, and `ip_hash` can't be null here.
+
 **`stats.schema.json`** is the dashboard numbers from `GET /stats`: totals, how many are active, countries seen, breaches, splits by attacker kind and reputation, and a per-minute timeline. Only `source = wild` traffic counts.
 
 **`examples/`** has sample JSON for every schema. `valid/` files must pass, `invalid/` files must fail. File names start with the schema they belong to, like `event.command.json`.
@@ -34,7 +36,7 @@ pip install -e contracts/py
 ```
 
 ```python
-from hacktx_contracts import parse_event, parse_raw_event, SessionSummary, Stats
+from hacktx_contracts import parse_event, parse_raw_event, AttackerSummary, SessionSummary, Stats
 
 ev = parse_event(json_text)   # returns e.g. CommandEvent, checked against the schema
 ```

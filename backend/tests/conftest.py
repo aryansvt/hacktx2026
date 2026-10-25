@@ -12,6 +12,7 @@ from jsonschema import Draft202012Validator
 from app.config import Settings
 from app.main import create_app
 from app.sessions import apply_event, fmt_ts
+from app.store import MAX_SESSION_IDS
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 EXAMPLES = CONTRACTS / "examples"
@@ -36,6 +37,7 @@ def make_event(
     reputation: str = "malicious",
     country: str = "NL",
     detail: dict | None = None,
+    ip_hash: str | None = "a" * 64,
 ) -> dict:
     """valid public event of any type."""
     defaults = {
@@ -71,7 +73,7 @@ def make_event(
             "family": None,
             "threat": "high",
             "client": "SSH-2.0-Go",
-            "ip_hash": "a" * 64,
+            "ip_hash": ip_hash,
         },
         "detail": detail if detail is not None else defaults[type_],
     }
@@ -109,6 +111,30 @@ class FakeStore:
     async def list_sessions(self, limit, source):
         rows = [r for r in self.sessions.values() if source is None or r["source"] == source]
         return sorted(rows, key=lambda r: r["started_at"], reverse=True)[:limit]
+
+    async def list_attackers(self, limit, source):
+        groups: dict[str, list[dict]] = {}
+        for r in self.sessions.values():
+            h = r["attacker"].get("ip_hash")
+            if h is not None and (source is None or r["source"] == source):
+                groups.setdefault(h, []).append(r)
+        out = []
+        for h, rows in groups.items():
+            rows.sort(key=lambda r: (r["last_seen"], r["session_id"]), reverse=True)
+            latest = rows[0]
+            out.append({
+                "ip_hash": h,
+                "visits": len(rows),
+                "first_seen": min(r["started_at"] for r in rows),
+                "last_seen": latest["last_seen"],
+                "latest_session_id": latest["session_id"],
+                "source": latest["source"],
+                "geo": latest["geo"],
+                "attacker": latest["attacker"],
+                "session_ids": [r["session_id"] for r in rows[:MAX_SESSION_IDS]],
+            })
+        out.sort(key=lambda a: (a["last_seen"], a["ip_hash"]), reverse=True)
+        return out[:limit]
 
     async def get_session(self, session_id):
         return self.sessions.get(session_id)

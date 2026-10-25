@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from honeypot.shell.commands.sudo import needs_password, parse
+from honeypot.shell.commands.sudo import needs_password, nopasswd, parse
 
 PW = "guest-Pw-91zq"
 
@@ -136,3 +136,53 @@ def test_guest_home_comes_from_skel_with_the_readme(engine, base):
     readme = state.fs.get("/home/guest/README.md")
     assert readme.content == base.nodes["/root/README.md"].content and readme.owner == "guest"
     assert {".bashrc", ".profile", ".bash_logout", "README.md"} <= set(state.fs.listdir("/home/guest"))
+
+
+# NOPASSWD rules in the fake fs's sudoers files
+
+@pytest.fixture
+def ubuntu(engine, base):
+    state = engine.new_state("ubuntu", tty=True, base=base)
+    # ubuntu's ssh password is never a sudo password; NOPASSWD is the only way in
+    state.sudo_check = lambda pw: False
+
+    def run(line):
+        res = engine.run(state, line)
+        run.code = res.code
+        return res.out
+
+    run.state = state
+    return run
+
+
+def test_ubuntu_skips_the_prompt_like_cloud_init_says(ubuntu):
+    assert "ubuntu ALL=(ALL) NOPASSWD:ALL" in ubuntu("sudo cat /etc/sudoers.d/90-cloud-init-users")
+    assert nopasswd(ubuntu.state)
+    assert not needs_password(ubuntu.state, "sudo id")
+    assert ubuntu("sudo id") == "uid=0(root) gid=0(root) groups=0(root)\n"
+    assert ubuntu("sudo -n whoami") == "root\n"
+    # -S doesn't eat stdin when no password is needed
+    assert ubuntu("echo hello | sudo -S cat") == "hello\n"
+    assert "(ALL) NOPASSWD: ALL" in ubuntu("sudo -l")
+    ubuntu("sudo -i")
+    assert ubuntu.state.user == "root"
+
+
+def test_nopasswd_follows_the_file(ubuntu):
+    st = ubuntu.state
+    st.fs.remove("/etc/sudoers.d/90-cloud-init-users")
+    assert not nopasswd(st) and needs_password(st, "sudo id")
+    assert "a password is required" in ubuntu("sudo id 2>&1")
+
+
+def test_nopasswd_for_a_group_and_nobody_else(engine, base, guest):
+    assert not nopasswd(guest.state)
+    state = engine.new_state("deploy", tty=True, base=base)
+    assert not nopasswd(state)
+    # deploy is in the sudo group; a %sudo NOPASSWD rule would let it in
+    state.fs.write("/etc/sudoers.d/50-ops", "%sudo  ALL=(ALL:ALL) NOPASSWD: ALL\n")
+    assert nopasswd(state)
+    # files with a dot are skipped, like real sudo
+    state.fs.remove("/etc/sudoers.d/50-ops")
+    state.fs.write("/etc/sudoers.d/ops.bak", "deploy ALL=(ALL) NOPASSWD:ALL\n")
+    assert not nopasswd(state)

@@ -39,7 +39,7 @@ Commands that report on the box all read the same facts, so they agree with each
 - `last`: the session's own login (interactive only, exec channels don't write wtmp), then `last` and the boot from `boot_time`.
 - `mount`: `mounts`, which holds every `df` row plus the pseudo filesystems and one overlay per container. Mounting anything fails.
 
-`sudo` (`shell/commands/sudo.py`) takes the login user's own SSH password, and only the guest and team logins have one it accepts. Everyone else gets "Sorry, try again." three times and `sudo: 3 incorrect password attempts`. Root never gets asked.
+`sudo` (`shell/commands/sudo.py`) takes the login user's own SSH password, and only the guest and team logins have one it accepts. Everyone else gets "Sorry, try again." three times and `sudo: 3 incorrect password attempts`. Root never gets asked, and neither does anyone with a `NOPASSWD: ALL` rule in the fake fs's `/etc/sudoers` or `/etc/sudoers.d/*` (for a user or a `%group`). That's `ubuntu`, from cloud-init's `90-cloud-init-users`, so sudo agrees with what `cat` shows. The rule is read from the session's overlay, so deleting the file brings the prompt back.
 
 - Interactive sessions: the engine can't stop mid-line to read input, so when a line would make sudo ask, the SSH server prompts first (`[sudo] password for guest: `, echo off, three tries) and then runs the line. The password goes to `Auth.sudo_ok` and is dropped; it's never a command event and never in history.
 - A right password is cached for 15 minutes. `sudo -k` forgets it.

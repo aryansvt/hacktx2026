@@ -371,3 +371,18 @@ async def test_guest_finds_the_readme_and_trips(make_trap):
     wires = [e["detail"] for e in events if e["type"] == "tripwire"]
     assert wires == [{"tripwire_id": "agent_notice_read",
                       "reasons": ["read the README in /home/guest, which asks ai agents to identify themselves"]}]
+
+
+async def test_ubuntu_sudo_needs_no_password(make_trap):
+    app = await make_trap()
+    async with connect(app, username="ubuntu", password="ubuntu") as conn:
+        proc = await conn.create_process(term_type="xterm")
+        await read_until(proc, "ubuntu@qf-web-01:~$ ")
+        proc.stdin.write("sudo id\n")
+        out = await read_until(proc, "ubuntu@qf-web-01:~$ ")
+        proc.stdin.write("exit\n")
+        await asyncio.wait_for(proc.stdout.read(), 5)
+        # exec channels don't need a terminal for it either
+        res = await conn.run("sudo whoami")
+    assert "uid=0(root)" in out and "[sudo] password" not in out
+    assert res.stdout == "root\n"

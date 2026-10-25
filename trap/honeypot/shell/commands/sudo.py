@@ -2,7 +2,8 @@
 
 the password is the login user's own ssh password, and only the guest and team
 logins have one sudo accepts; the ssh layer's check says yes or no and never
-keeps it. a right password is cached for 15 minutes like real sudo. the
+keeps it. a NOPASSWD:ALL rule in the fake fs's sudoers files (ubuntu has one,
+from cloud-init) skips the password, so sudo agrees with what cat shows. a right password is cached for 15 minutes like real sudo. the
 command then runs as root through the engine, so nothing touches the host.
 
 the ssh layer asks for the password before an interactive line runs (with echo
@@ -72,6 +73,45 @@ def parse(args: list[str]) -> tuple[dict, list[str]]:
     return opts, cmd
 
 
+def _sudoers_lines(state: ShellState) -> list[str]:
+    """rule lines from the fake fs's /etc/sudoers and /etc/sudoers.d, read the way sudo does (as root)."""
+    paths = ["/etc/sudoers"]
+    if state.fs.is_dir("/etc/sudoers.d"):
+        # sudo skips names with a dot or ending in ~
+        paths += [f"/etc/sudoers.d/{n}" for n in state.fs.listdir("/etc/sudoers.d")
+                  if "." not in n and not n.endswith("~")]
+    lines = []
+    for path in paths:
+        node = state.fs.get(path)
+        if node is not None and node.type == "file":
+            lines += [l.split("#", 1)[0].strip() for l in node.content.splitlines()]
+    return [l for l in lines if l and not l.startswith(("Defaults", "@include", "#include"))]
+
+
+def _groups(state: ShellState, user: str) -> set[str]:
+    node = state.fs.get("/etc/group")
+    found = set()
+    for line in (node.content if node is not None else "").splitlines():
+        parts = line.split(":")
+        if len(parts) >= 4 and user in parts[3].split(","):
+            found.add(parts[0])
+    return found
+
+
+def nopasswd(state: ShellState) -> bool:
+    """a sudoers rule like 'ubuntu ALL=(ALL) NOPASSWD:ALL' lets this user in without a password."""
+    groups = _groups(state, state.user)
+    for line in _sudoers_lines(state):
+        parts = line.split(None, 1)
+        if len(parts) < 2:
+            continue
+        who, rule = parts[0], "".join(parts[1].split())
+        mine = who == state.user or (who.startswith("%") and who[1:] in groups)
+        if mine and rule.endswith("NOPASSWD:ALL"):
+            return True
+    return False
+
+
 def _acts(opts: dict, cmd: list[str]) -> bool:
     """does this run something that needs the password?"""
     if opts.get("V") or opts.get("h"):
@@ -81,7 +121,7 @@ def _acts(opts: dict, cmd: list[str]) -> bool:
 
 def needs_password(state: ShellState, line: str) -> bool:
     """would this line make sudo ask for a password on the terminal? the ssh layer asks first."""
-    if state.is_root or time.time() < state.sudo_until:
+    if state.is_root or time.time() < state.sudo_until or nopasswd(state):
         return False
     try:
         chain = split_line(line)
@@ -104,7 +144,7 @@ def needs_password(state: ShellState, line: str) -> bool:
 def _authorized(ctx: Ctx, opts: dict, stdin: str | None) -> tuple[Result | None, str | None]:
     """(an error to return, or None when allowed; stdin left for the command)."""
     st = ctx.state
-    if st.is_root or time.time() < st.sudo_until:
+    if st.is_root or time.time() < st.sudo_until or nopasswd(st):
         return None, stdin
     if st.sudo_denied:
         return Result(err=st.sudo_denied, code=1), stdin
@@ -187,7 +227,8 @@ def sudo(ctx: Ctx, args: list[str]) -> Result:
     if opts.get("l") and not cmd:
         return Result(f"Matching Defaults entries for {st.user} on {st.hostname}:\n"
                       f"    env_reset, mail_badpass, secure_path={SECURE_PATH}, use_pty\n\n"
-                      f"User {st.user} may run the following commands on {st.hostname}:\n    (ALL : ALL) ALL\n",
+                      f"User {st.user} may run the following commands on {st.hostname}:\n"
+                      + ("    (ALL) NOPASSWD: ALL\n" if nopasswd(st) else "    (ALL : ALL) ALL\n"),
                       pre.err if pre else "")
     if not cmd:
         return _open_shell(ctx, target, bool(opts.get("i")), pre)

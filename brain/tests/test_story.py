@@ -7,7 +7,7 @@ import pytest
 from brain.llm import CapReached
 from brain.reputation import ReputationService
 from brain.session import Session
-from brain.story import Storyteller, creature, facts, label, tag, template_story
+from brain.story import Storyteller, creature, facts, label, problem, tag, template_story
 from brain.worker import EVENTS, Brain
 
 from fakes import SETTINGS, FakeGeo, FakeLLM, FakeSerp, event_validator, load_fixture
@@ -148,3 +148,102 @@ def test_facts_mask_attacker_ip():
     s = Session("x", src_ip="198.51.100.5", geo={"lat": 0, "lon": 0, "country": "XX", "city": None})
     s.add_command(0, "ping 198.51.100.5 && curl 192.0.2.1", "")
     assert "198.51.100.5" not in facts(s) and "192.0.2.1" not in facts(s)
+
+
+# ---- fact checks and the retry ----
+
+GARBLED = ("A clay golem (bot) named slime (AI agent), an AI agent, shambled over from our own hackathon table in Austin. "
+           "It never got past a single login, so the little creature left with nothing but a few ticklish tripwires.")
+
+
+def polite_agent():
+    """like the live --polite run: logged in first try, read .env, declared itself."""
+    s = Session("x", source="team", kind="agent", confidence=0.9, reputation="harmless", threat="high",
+                geo={"lat": 30.27, "lon": -97.74, "country": "US", "city": "Austin"})
+    s.add_login(0, "team", True)
+    for i, line in enumerate(["hostname; whoami", "cat /home/team/README.md", "echo qf-agent-hello",
+                              "cat /opt/app/.env", "ps aux | head"]):
+        s.add_command(1 + i, line, "")
+    return s
+
+
+def replies(*texts):
+    it = iter(texts)
+    return FakeLLM(lambda system, user: next(it))
+
+
+def test_prompt_example_is_not_one_of_our_creatures():
+    from brain.story import ALL_CREATURES, SYSTEM
+    assert not any(c in SYSTEM.lower() for c in ALL_CREATURES)
+    assert "moss troll" in SYSTEM
+
+
+def test_facts_spell_out_login_count_and_notable_commands():
+    text = facts(polite_agent())
+    assert "login: succeeded on the first try, so it got inside the box" in text
+    assert "commands run: 5" in text
+    notable = text.split("notable commands:\n", 1)[1]
+    assert "cat /opt/app/.env" in notable and "whoami" not in notable
+
+
+def test_facts_for_a_session_that_never_got_in():
+    s = Session("x")
+    s.add_login(0, "root", False)
+    s.add_login(1, "admin", False)
+    text = facts(s)
+    assert "login: never got in: 2 failed tries, then it left" in text
+    assert "commands run: 0" in text and "notable commands" not in text
+
+
+@pytest.mark.parametrize("story,why", [
+    (GARBLED, "clay golem"),
+    ("A slime (bot) oozed in from Austin.", "(bot)"),
+    ("A slime (AI agent) oozed in from Austin, but it never got past a single login.", "never got in"),
+    ("A slime (AI agent) oozed in from Austin. It never guessed the password.", "never got in"),
+    ("A slime (AI agent) oozed in from Austin and ran 12 commands.", "12 commands"),
+    ("A curious visitor came from Austin.", "never names the slime"),
+])
+def test_problem_catches_wrong_creatures_and_contradictions(story, why):
+    assert why in problem(story, polite_agent())
+
+
+@pytest.mark.parametrize("story", [
+    "A slime (AI agent) oozed in from our own table in Austin and slipped inside the box on its first try.",
+    "A slime (AI agent) from Austin ran 5 commands, read the README and politely said hello.",
+])
+def test_problem_passes_a_faithful_story(story):
+    assert problem(story, polite_agent()) is None
+
+
+def test_problem_for_a_session_that_never_got_in():
+    s = Session("x", geo={"lat": 0, "lon": 0, "country": "XX", "city": None})
+    s.add_login(0, "root", False)
+    assert "got inside" in problem("A shadowy stranger (unknown) slipped inside the box.", s)
+    assert problem("A shadowy stranger (unknown) rattled the gate, but the gate held.", s) is None
+
+
+def test_cursed_fae_may_be_called_fae_but_a_fae_is_never_cursed():
+    s = polite_agent()
+    s.reputation = "malicious"
+    assert problem("A cursed fae (AI agent) crept in from Austin. The fae read the README.", s) is None
+    s.reputation = "unknown"
+    assert "cursed fae" in problem("A cursed fae (AI agent) crept in from Austin.", s)
+
+
+async def test_bad_story_is_retried_once_with_the_reason():
+    good = "A slime (AI agent) oozed in from our own table in Austin and politely said hello."
+    llm = replies(GARBLED, good)
+    assert await Storyteller(llm).tell(polite_agent()) == good
+    assert len(llm.calls) == 2
+    retry = llm.calls[1][1]
+    assert "login: succeeded on the first try" in retry
+    assert "rejected because it calls the creature a clay golem, not a slime" in retry
+
+
+async def test_two_bad_stories_fall_back_to_the_template():
+    s = polite_agent()
+    llm = replies(GARBLED, "A fae (AI agent) wandered in from Austin.")
+    text = await Storyteller(llm).tell(s)
+    assert len(llm.calls) == 2
+    assert text == template_story(s)
+    assert "slime (AI agent)" in text and "clay golem" not in text

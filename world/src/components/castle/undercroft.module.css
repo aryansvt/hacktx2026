@@ -51,13 +51,17 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) 2.4fr;
+  grid-template-columns: minmax(220px, 1fr) minmax(0, 2.4fr);
   gap: 24px;
 }
 .cols h3 {
   margin: 0 0 6px;
   font: 400 19px var(--font-display);
   color: var(--primary);
+}
+.cols > div {
+  min-height: 0;
+  overflow: auto;
 }
 .reasons {
   list-style: none;

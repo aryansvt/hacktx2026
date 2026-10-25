@@ -17,3 +17,12 @@
   pointer-events: none;
   letter-spacing: 0.01em;
 }
+@media (max-width: 760px) {
+  .footer {
+    white-space: normal;
+    width: calc(100vw - 24px);
+    font-size: 11px;
+    line-height: 13px;
+    bottom: 2px;
+  }
+}

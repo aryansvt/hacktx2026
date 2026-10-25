@@ -73,17 +73,17 @@ export default function Undercroft({
             />
             <Figure
               label="Rules engine"
-              value={`${split.engine.avg} ms`}
+              value={ms(split.engine)}
               hint={`${split.engine.count} replies from our hand-written fake shell`}
             />
             <Figure
               label="LLM"
-              value={`${split.llm.avg} ms`}
+              value={ms(split.llm)}
               hint={`${split.llm.count} replies the rules didn't cover, written by an AI`}
             />
             <Figure
               label="Cache"
-              value={`${split.cache.avg} ms`}
+              value={ms(split.cache)}
               hint={`${split.cache.count} replies reused from an earlier LLM answer`}
             />
           </div>
@@ -130,6 +130,9 @@ export default function Undercroft({
     </AnimatePresence>
   );
 }
+
+const ms = (s: { count: number; avg: number }) =>
+  !s.count ? "none yet" : s.avg < 1 ? "<1 ms" : `${s.avg} ms`;
 
 function Figure({
   label,

@@ -116,3 +116,10 @@ h2 {
     scroll-behavior: auto !important;
   }
 }
+/* phones: the two-row top bar is taller, so panels start lower */
+@media (max-width: 760px) {
+  [aria-label="Creature inspection"],
+  [aria-label="The Chronicle"] {
+    top: 118px !important;
+  }
+}

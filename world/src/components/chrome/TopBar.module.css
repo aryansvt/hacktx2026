@@ -169,3 +169,40 @@
     font-size: 13px;
   }
 }
+/* phones: brand and buttons on one row, the four counters on a second */
+@media (max-width: 760px) {
+  .bar {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 4px;
+    padding: 8px 12px 6px;
+  }
+  .wordmark {
+    font-size: 24px;
+  }
+  .counters {
+    width: 100%;
+    margin-left: 0;
+    justify-content: space-between;
+  }
+  .counter {
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px 4px;
+  }
+  .counter + .counter::before {
+    display: none;
+  }
+  .counter dt {
+    font-size: 12px;
+  }
+  .counter dd {
+    font-size: 16px;
+  }
+  .caption {
+    display: none;
+  }
+}

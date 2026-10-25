@@ -132,3 +132,14 @@
   font-style: italic;
   color: var(--muted);
 }
+@media (max-width: 760px) {
+  .toggle {
+    top: 20px;
+    right: 20px;
+  }
+  .page {
+    top: 118px;
+    right: 10px;
+    width: calc(100vw - 20px);
+  }
+}

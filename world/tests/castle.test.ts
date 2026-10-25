@@ -80,3 +80,21 @@ test("chimes only for notable events", async () => {
   };
   assert.ok(chimeFor(guest));
 });
+
+test("reasons that differ only by a number count once", () => {
+  const a = fixtureEvent(
+    0,
+    "s",
+    "classified",
+    { reasons: ["connected 358 times in the last hour"] },
+    1,
+  );
+  const b = fixtureEvent(
+    0,
+    "s",
+    "classified",
+    { reasons: ["connected 357 times in the last hour"] },
+    2,
+  );
+  assert.equal(latestReasons([a, b]).length, 1);
+});

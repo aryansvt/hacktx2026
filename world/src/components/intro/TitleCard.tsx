@@ -15,7 +15,6 @@ export default function TitleCard({ disabled }: { disabled: boolean }) {
     let seen = false;
     try {
       seen = sessionStorage.getItem(KEY) === "1";
-      sessionStorage.setItem(KEY, "1");
     } catch {}
     if (seen) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -32,6 +31,10 @@ export default function TitleCard({ disabled }: { disabled: boolean }) {
   }, [phase, skip]);
   useEffect(() => {
     if (phase !== "opening") return;
+    // mark seen only once it has played, so a remount doesn't eat it
+    try {
+      sessionStorage.setItem(KEY, "1");
+    } catch {}
     const t = setTimeout(() => setPhase("hidden"), reduce ? 300 : 1100);
     return () => clearTimeout(t);
   }, [phase, reduce]);

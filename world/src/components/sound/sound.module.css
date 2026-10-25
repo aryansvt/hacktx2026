@@ -21,3 +21,9 @@
   color: var(--blue);
   border-color: var(--gold);
 }
+@media (max-width: 760px) {
+  .toggle {
+    top: 20px;
+    right: 64px;
+  }
+}

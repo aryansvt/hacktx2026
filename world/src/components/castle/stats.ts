@@ -35,8 +35,10 @@ export function latestReasons(events: AttackEvent[], max = 8) {
   for (const e of events) {
     if (e.type !== "classified" && e.type !== "tripwire") continue;
     for (const r of e.detail.reasons) {
-      if (seen.has(r)) continue;
-      seen.add(r);
+      // "connected 358 times" and "connected 357 times" are the same reason
+      const k = r.replace(/\d+/g, "#");
+      if (seen.has(k)) continue;
+      seen.add(k);
       out.push({ reason: r, type: e.type });
       if (out.length >= max) return out;
     }

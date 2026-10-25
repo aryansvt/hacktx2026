@@ -74,17 +74,17 @@ export default function Undercroft({
             <Figure
               label="Rules engine"
               value={ms(split.engine)}
-              hint={`${split.engine.count} replies from our hand-written fake shell`}
+              hint={`${split.engine.count} ${split.engine.count === 1 ? "reply" : "replies"} from our hand-written fake shell`}
             />
             <Figure
               label="LLM"
               value={ms(split.llm)}
-              hint={`${split.llm.count} replies the rules didn't cover, written by an AI`}
+              hint={`${split.llm.count} ${split.llm.count === 1 ? "reply" : "replies"} the rules didn't cover, written by an AI`}
             />
             <Figure
               label="Cache"
               value={ms(split.cache)}
-              hint={`${split.cache.count} replies reused from an earlier LLM answer`}
+              hint={`${split.cache.count} ${split.cache.count === 1 ? "reply" : "replies"} reused from an earlier LLM answer`}
             />
           </div>
           <hr className={orn.goldRule} />
@@ -132,7 +132,11 @@ export default function Undercroft({
 }
 
 const ms = (s: { count: number; avg: number }) =>
-  !s.count ? "none yet" : s.avg < 1 ? "<1 ms" : `${s.avg} ms`;
+  !s.count
+    ? "none yet"
+    : s.avg < 1
+      ? "<1 ms"
+      : `${s.avg.toLocaleString("en-US")} ms`;
 
 function Figure({
   label,

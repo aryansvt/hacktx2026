@@ -8,6 +8,7 @@ import type {
   SessionResponse,
 } from "./contracts";
 import { emptyDomain, ingest, parseTransport } from "./domain";
+import { worstEvents, worstStats } from "./worst";
 const epoch = Date.parse("2026-10-25T12:00:00Z");
 const places: Geo[] = [
   { lat: 52.37, lon: 4.9, city: "Amsterdam", country: "NL" },
@@ -195,15 +196,18 @@ export function demoStep(tick: number): AttackEvent {
       } as AttackEvent)
     : now;
 }
-export function createMockAdapter(): DataAdapter {
-  let events = fixtures();
+export type MockData = "demo" | "worst" | "empty";
+export function createMockAdapter(data: MockData = "demo"): DataAdapter {
+  // worst and empty start bare; worst then streams its events so heralds fire
+  let events = data === "demo" ? fixtures() : [];
+  const queue = data === "worst" ? worstEvents() : [];
   let state = events.reduce(ingest, emptyDomain());
   let timer: ReturnType<typeof setInterval> | undefined;
   const snapshot = async (): Promise<Snapshot> => ({
     events: [...events],
     sessions: Object.values(state.sessions),
     attackers: Object.values(state.attackers),
-    stats: state.stats,
+    stats: data === "worst" ? worstStats : state.stats,
   });
   return {
     mode: "mock",
@@ -220,15 +224,20 @@ export function createMockAdapter(): DataAdapter {
     },
     subscribe(listener) {
       let tick = 0;
-      timer = setInterval(() => {
-        const ping = parseTransport('{"type":"ping"}');
-        if (ping) listener(ping);
-        const e = demoStep(tick);
-        events = [...events, e];
-        state = ingest(state, e);
-        listener(e);
-        tick++;
-      }, 3000);
+      timer = setInterval(
+        () => {
+          const ping = parseTransport('{"type":"ping"}');
+          if (ping) listener(ping);
+          if (data === "empty") return;
+          const e = data === "worst" ? queue[tick] : demoStep(tick);
+          if (!e) return;
+          events = [...events, e];
+          state = ingest(state, e);
+          listener(e);
+          tick++;
+        },
+        data === "worst" ? 700 : 3000,
+      );
       return () => {
         clearInterval(timer);
       };

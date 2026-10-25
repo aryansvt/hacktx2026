@@ -35,10 +35,18 @@ export default function WebIntel() {
   );
 
   const rows = [
-    { n: lookups, label: "lookups" },
-    { n: sources, label: "sources found" },
-    { n: unmasked, label: "attackers unmasked", bad: true },
-    { n: knownBad, label: "known bad visitors", bad: true },
+    { n: lookups, label: lookups === 1 ? "lookup" : "lookups" },
+    { n: sources, label: sources === 1 ? "source found" : "sources found" },
+    {
+      n: unmasked,
+      label: unmasked === 1 ? "attacker unmasked" : "attackers unmasked",
+      bad: true,
+    },
+    {
+      n: knownBad,
+      label: knownBad === 1 ? "known bad visitor" : "known bad visitors",
+      bad: true,
+    },
   ];
 
   return (

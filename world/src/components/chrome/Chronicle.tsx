@@ -1,5 +1,11 @@
 "use client";
-import { useEffect, useMemo, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { X, BookOpen } from "lucide-react";
 import { useDomain } from "@/lib/store";
@@ -161,8 +167,25 @@ export default function Chronicle() {
   );
 }
 
+// hold each line on screen a beat, so bursts of events don't leave it blank
+function useSteady<T extends { id: string }>(value: T | undefined, ms: number) {
+  const [shown, setShown] = useState(value);
+  const last = useRef(0);
+  useEffect(() => {
+    if (!value || value.id === shown?.id) return;
+    const wait = Math.max(0, last.current + ms - Date.now());
+    const t = setTimeout(() => {
+      last.current = Date.now();
+      setShown(value);
+    }, wait);
+    return () => clearTimeout(t);
+  }, [value, shown, ms]);
+  return shown && value && shown.id === value.id ? value : (shown ?? value);
+}
+
 function Card({ reduce }: { reduce: boolean }) {
-  const [row] = useRows(1);
+  const [latest] = useRows(1);
+  const row = useSteady(latest, 1600);
   const now = useNow();
   const open = useView((s) => s.openActivity);
   return (

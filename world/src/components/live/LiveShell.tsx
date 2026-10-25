@@ -21,6 +21,7 @@ import Bestiary from "@/components/bestiary/Bestiary";
 import Undercroft from "@/components/castle/Undercroft";
 import TitleCard from "@/components/intro/TitleCard";
 import SoundToggle from "@/components/sound/SoundToggle";
+import DevDataToggle from "./DevDataToggle";
 const World = dynamic(() => import("./World"), {
   ssr: false,
   loading: () => null,
@@ -36,11 +37,12 @@ export default function LiveShell() {
   const [adapter, setAdapter] = useState<DataAdapter | null>(null);
   const worldRef = useRef<HTMLDivElement>(null),
     lineRef = useRef<SVGPolylineElement>(null);
-  const { mode, choose, toggle } = useDataMode();
+  const { mode, data, choose, toggle } = useDataMode();
   const conn = useConn((s) => s.conn);
   useEffect(() => {
     if (!mode) return;
-    const current = mode === "mock" ? createMockAdapter() : createLiveAdapter();
+    const current =
+      mode === "mock" ? createMockAdapter(data) : createLiveAdapter();
     let active = true;
     let unsubscribe = () => {};
     let poll: ReturnType<typeof setInterval> | undefined;
@@ -72,7 +74,7 @@ export default function LiveShell() {
       current.close();
       useDomain.getState().reset();
     };
-  }, [mode]);
+  }, [mode, data]);
   const project = useCallback((x: number, y: number) => {
     const r = worldRef.current?.getBoundingClientRect();
     const popup = document
@@ -149,6 +151,9 @@ export default function LiveShell() {
       {!kiosk && <SoundToggle />}
       <Oracle />
       <TitleCard disabled={kiosk} />
+      {process.env.NODE_ENV !== "production" && (
+        <DevDataToggle current={data} />
+      )}
       {!kiosk && (
         <Timeline castleOpen={castle} onCastle={() => setCastle((v) => !v)} />
       )}

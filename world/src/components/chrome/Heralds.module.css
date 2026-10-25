@@ -92,3 +92,9 @@
     font-size: 20px;
   }
 }
+/* phones: the top bar is two rows, so heralds start below it */
+@media (max-width: 760px) {
+  .stage {
+    top: 122px;
+  }
+}

@@ -137,3 +137,10 @@ def test_weights_cover_every_signal_key():
     s = replay(load("agent"))
     for sig in c.signals(s):
         assert sig.key in c.WEIGHTS
+
+
+def test_shared_signals_alone_stay_unknown():
+    s = Session("x", client="SSH-2.0-paramiko_3.4.0")
+    s.add_login(0, "admin", True)
+    s.add_command(1, "pwd", "/root")
+    assert c.score(s) == c.UNKNOWN

@@ -42,6 +42,9 @@ WEIGHTS = {
     "asn_scanner": 1.5,
 }
 
+# signals that count for two labels at once
+SHARED_KEYS = {"client_library", "client_interactive", "first_try_login"}
+
 # how much total weight before confidence stops being scaled down
 MIN_EVIDENCE = 6.0
 # emit a classified event when confidence moves at least this much
@@ -299,7 +302,8 @@ def score(s: Session) -> Verdict:
     # ties go to the order bot, human, agent
     winner = max(totals, key=lambda k: totals[k])
     support = sorted((x for x in sigs if x.label == winner), key=lambda x: -x.weight)
-    if len(support) < 2:
+    # shared signals only break ties; the winner needs one of its own
+    if len(support) < 2 or all(x.key in SHARED_KEYS for x in support):
         return UNKNOWN
     share = totals[winner] / total
     evidence = min(1.0, total / MIN_EVIDENCE)

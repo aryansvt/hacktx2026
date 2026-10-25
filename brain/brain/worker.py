@@ -8,7 +8,9 @@ import logging
 from collections import defaultdict
 
 from hacktx_contracts import parse_raw_event
+from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import ResponseError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from . import classifier
 from .commands import downloaded_files
@@ -209,8 +211,16 @@ class Brain:
         if recovered:
             log.info("recovered %d pending events", recovered)
         log.info("brain consuming %s as %s/%s", RAW, GROUP, self.s.consumer)
+        backoff = 1.0
         try:
             while True:
-                await self.step(">", block_ms=5000)
+                try:
+                    await self.step(">", block_ms=5000)
+                    backoff = 1.0
+                except (RedisConnectionError, RedisTimeoutError) as e:
+                    # redis restarts or blips shouldn't kill the worker
+                    log.warning("redis unavailable (%s), retrying in %.0fs", e, backoff)
+                    await asyncio.sleep(backoff)
+                    backoff = min(backoff * 2, 30.0)
         finally:
             await self.wait_idle(timeout=5)

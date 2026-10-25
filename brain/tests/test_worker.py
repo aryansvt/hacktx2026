@@ -1,6 +1,11 @@
+import asyncio
 import json
 
 import fakeredis
+import pytest
+from redis.exceptions import TimeoutError as RedisTimeoutError
+
+import brain.worker as w
 
 from brain.worker import DEAD, EVENTS, GROUP, RAW, Brain
 
@@ -95,3 +100,26 @@ async def test_session_state_persists_across_brains():
     s = await b.store.get(raws[0]["session_id"])
     assert s.login_fails == 4 and s.command_count == 5 and s.status == "ended"
     assert s.downloads == ["bins.sh"]
+
+
+async def test_run_survives_redis_blips(monkeypatch):
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    calls = {"n": 0}
+
+    async def flaky(start=">", count=50, block_ms=None):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise RedisTimeoutError("blip")
+        if calls["n"] >= 4:
+            raise asyncio.CancelledError
+        return 0
+
+    async def no_sleep(_s):
+        return None
+
+    monkeypatch.setattr(brain, "step", flaky)
+    monkeypatch.setattr(w.asyncio, "sleep", no_sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await brain.run()
+    assert calls["n"] == 4

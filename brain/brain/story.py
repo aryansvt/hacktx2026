@@ -6,10 +6,13 @@ import logging
 import re
 import time
 
+from .commands import downloaded_files
 from .llm import CapReached
 from .output import build, derived_id
 from .privacy import mask_ip, scrub_ips
 from .session import Session, fmt_ts
+from .techniques import map_command
+from .threat import level_for_command, payload_writes
 
 log = logging.getLogger(__name__)
 
@@ -17,6 +20,7 @@ CREATURES = {"bot": "clay golem", "human": "dark mage", "agent": "fae", "unknown
 MALICIOUS = {"bot": "stone golem", "human": "evil witch", "agent": "cursed fae"}
 # what the creature really is, shown in parentheses after its first mention
 LABELS = {"bot": "bot", "human": "human", "agent": "AI agent", "unknown": "unknown"}
+ALL_CREATURES = set(CREATURES.values()) | set(MALICIOUS.values()) | {"slime", "dragon"}
 
 # most notable first; stories mention the first two a session hit
 TECHNIQUE_NAMES = {
@@ -31,11 +35,31 @@ TECHNIQUE_NAMES = {
 }
 
 MAX_STORY = 700
+MAX_NOTABLE = 6
+FIRST_COMMANDS = 4
+# plain looking around; anything else a command maps to makes it notable
+RECON = {"T1033", "T1082", "T1083", "T1057", "T1049", "T1016"}
+
+# a story that says a session never got in, for one that did
+NEVER_IN = re.compile(
+    r"never (?:got|made it|slipped|broke|squeezed|crept) (?:past|in\b|inside|through)|"
+    r"(?:could ?n[o']t|did ?n[o']t|failed to|unable to) (?:get|break|make it|slip|squeeze) (?:in\b|inside|past|through)|"
+    r"never (?:tripped|cracked|guessed|passed|got past) (?:a single |the |any )?(?:login|password)|"
+    r"gate held|locked out|stayed outside|turned away at the (?:gate|door)",
+    re.I,
+)
+# a story that says a session got in, for one that never did
+GOT_IN = re.compile(
+    r"(?:got|slipped|made it|broke|crept|squeezed|wandered|stepped|sneaked|snuck) (?:inside|in(?:to)? the box)|"
+    r"inside the box|\bran (?:\d+|a few|some|several) commands?",
+    re.I,
+)
+RAN_N = re.compile(r"\bran (\d+) commands?", re.I)
 
 SYSTEM = """You narrate honeypot sessions as tiny storybook tales for a live 3D globe.
 Write 2 to 4 sentences of plain prose. Refer to the attacker as the creature you are given, and mention where it came from.
-The first time you name the creature, put the label you are given right after it in parentheses, like "A clay golem (bot) lumbered in from Rümlang".
-Be playful, but stay true to the facts: do not invent actions, tools or outcomes that are not listed.
+The first time you name the creature, put the label you are given right after it in parentheses. For example, with the made-up creature "moss troll" and label "(example)": "A moss troll (example) stomped in from Reykjavik". Always use the creature and label you are given, never another one.
+Be playful, but stay true to the facts: do not invent actions, tools or outcomes that are not listed. Say whether it got in exactly as the login line says.
 Never include IP addresses, passwords or full URLs. No titles, no lists, no quotes around the story."""
 
 
@@ -116,6 +140,29 @@ def template_story(s: Session) -> str:
     return _sentences(parts)
 
 
+def login_line(s: Session) -> str:
+    fails = s.login_fails
+    tries = f"{fails} failed tr{'ies' if fails != 1 else 'y'}"
+    if s.logged_in:
+        return f"succeeded {'on the first try' if not fails else f'after {tries}'}, so it got inside the box"
+    if fails:
+        return f"never got in: {tries}, then it left"
+    return "never tried to log in and never got inside"
+
+
+def notable_commands(s: Session) -> list[str]:
+    """commands that reached high threat or did more than look around, in order."""
+    out, downloads, written = [], [], []
+    for c in s.commands:
+        line = c["input"]
+        risky = level_for_command(line, downloads, written) in ("high", "critical")
+        downloads += downloaded_files(line)
+        written += payload_writes(line)
+        if risky or set(map_command(line)) - RECON:
+            out.append(line)
+    return out[:MAX_NOTABLE]
+
+
 def facts(s: Session) -> str:
     a = s.attacker()
     lines = [
@@ -123,8 +170,8 @@ def facts(s: Session) -> str:
         f"label: ({label(a)})",
         f"from: {place(s)}",
         f"visitor type: {'a guest at our hackathon table playing along' if s.source in ('guest', 'team') else 'stranger from the internet'}",
-        f"how far it got: {s.status if not s.logged_in else 'inside the box'}",
-        f"failed logins: {s.login_fails}",
+        f"login: {login_line(s)}",
+        f"commands run: {s.command_count}",
         f"threat: {a['threat']}",
         f"reputation: {a['reputation']}" + (f", known as {a['family']}" if a["family"] else ""),
         f"session length: {int((s.last_ts or 0) - (s.started_at or 0))} seconds",
@@ -134,9 +181,40 @@ def facts(s: Session) -> str:
     if s.tripwires:
         lines.append("tripwires: " + "; ".join((t.get("reasons") or [t.get("id", "")])[0] for t in s.tripwires))
     if s.commands:
-        cmds = [scrub_ips(mask_ip(c["input"], s.src_ip))[:120] for c in s.commands[:12]]
-        lines.append("commands in order:\n" + "\n".join(f"- {c}" for c in cmds))
+        first = [_safe(c["input"], s) for c in s.commands[:FIRST_COMMANDS]]
+        lines.append("first commands:\n" + "\n".join(f"- {c}" for c in first))
+    notable = [_safe(c, s) for c in notable_commands(s)]
+    if notable:
+        lines.append("notable commands:\n" + "\n".join(f"- {c}" for c in notable))
     return "\n".join(lines)
+
+
+def _safe(line: str, s: Session) -> str:
+    return scrub_ips(mask_ip(line, s.src_ip))[:120]
+
+
+def problem(text: str, s: Session) -> str | None:
+    """why a story can't go out: a wrong creature or label, or a claim the facts contradict."""
+    a = s.attacker()
+    who, what = creature(a), label(a)
+    low = text.lower()
+    if not re.search(rf"\b{re.escape(who)}\b", low):
+        return f"it never names the {who}"
+    for other in sorted(ALL_CREATURES - {who}):
+        # "fae" inside "cursed fae" is still our creature
+        if other not in who and re.search(rf"\b{re.escape(other)}\b", low):
+            return f"it calls the creature a {other}, not a {who}"
+    for other in sorted(set(LABELS.values()) - {what}):
+        if f"({other.lower()})" in low:
+            return f"it labels the creature ({other}), not ({what})"
+    if s.logged_in and NEVER_IN.search(text):
+        return "it says the creature never got in, but its login succeeded"
+    if not s.logged_in and GOT_IN.search(text):
+        return "it says the creature got inside, but it never logged in"
+    m = RAN_N.search(text)
+    if m and int(m.group(1)) != s.command_count:
+        return f"it says {m.group(1)} commands, but the creature ran {s.command_count}"
+    return None
 
 
 class Storyteller:
@@ -144,16 +222,25 @@ class Storyteller:
         self.llm = llm
 
     async def tell(self, s: Session) -> str:
-        if self.llm is not None:
+        if self.llm is None:
+            return template_story(s)
+        a = s.attacker()
+        user = facts(s)
+        # one retry that says what was wrong, then the template
+        for _ in range(2):
             try:
-                a = s.attacker()
-                story = clean(tag(await self.llm.complete(SYSTEM, facts(s)) or "", creature(a), label(a)))
-                if story:
-                    return story
+                story = clean(tag(await self.llm.complete(SYSTEM, user) or "", creature(a), label(a)))
             except CapReached:
                 log.info("llm cap reached, template story")
+                break
             except Exception:
                 log.exception("story llm failed, template story")
+                break
+            why = problem(story, s) if story else "it was empty"
+            if why is None:
+                return story
+            log.info("story for %s rejected: %s", s.session_id, why)
+            user = f"{facts(s)}\n\nYour last story was rejected because {why}. Write a new one that fits the facts."
         return template_story(s)
 
     async def run(self, brain, sid: str, raw: dict) -> dict | None:

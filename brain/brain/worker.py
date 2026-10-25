@@ -18,7 +18,7 @@ from .output import build, derived_id, public_detail
 from .privacy import ip_hash
 from .session import Session, SessionStore
 from .techniques import map_command
-from .threat import apply, level_for_event, max_level
+from .threat import apply, level_for_event, max_level, payload_writes
 
 log = logging.getLogger(__name__)
 
@@ -74,9 +74,10 @@ class Brain:
                 line = raw["detail"]["input"]
                 techniques = map_command(line)
                 s.techniques = sorted(set(s.techniques) | set(techniques))
-            base = level_for_event(typ, line, s.downloads)
+            base = level_for_event(typ, line, s.downloads, s.written)
             if line:
                 s.downloads = list(dict.fromkeys(s.downloads + downloaded_files(line)))[-MAX_DOWNLOADS:]
+                s.written = list(dict.fromkeys(s.written + payload_writes(line)))[-MAX_DOWNLOADS:]
             s.threat_base = max_level(s.threat_base, base)
             s.threat = apply(s.threat, s.threat_base, s.reputation)
 

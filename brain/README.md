@@ -54,7 +54,7 @@ One exception: a quick login-only scan. If a session ends within `QUICK_SCAN_S` 
 
 To tune it, change a weight or threshold, then run `python -m pytest tests/test_classifier.py`. The bot, human and agent fixtures in `tests/fixtures/` pin the expected labels.
 
-**Threat** (`threat.py`). Failed logins only is `low`. Getting in is `med`. Reading credentials or `.env` files, downloading, or persistence (cron, ssh keys, new users) is `high`. Running a downloaded payload, crypto miners, or wiping logs and history is `critical`. A malicious reputation bumps it one level. It never goes down.
+**Threat** (`threat.py`). Failed logins only is `low`. Getting in is `med`. Reading credentials or `.env` files, downloading, or persistence (cron, ssh keys, new users) is `high`. Running a downloaded payload, crypto miners, or wiping logs and history is `critical`. So is a hand-written dropper: a file written with `echo`, `printf`, `cat` or `base64 -d` and `>`/`>>`, or with `tee`, that is then made executable (`chmod +x`, `chmod 755`) or run (`./x`, `sh x`, `bash x`), in the same line or later. Writing to crontab, `authorized_keys`, `rc.local` or systemd units stays `high`, even by a relative path. A malicious reputation bumps it one level. It never goes down.
 
 **Techniques** (`techniques.py`). A lookup table from command names and patterns to ATT&CK ids, like `uname` to T1082, `cat /etc/passwd` to T1087.001, `wget` to T1105 and `crontab` to T1053.003.
 

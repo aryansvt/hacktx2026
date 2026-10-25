@@ -158,6 +158,51 @@ def executed_files(line: str) -> list[str]:
     return [o for o in out if o]
 
 
+# quoted strings match first so a > inside echo text isn't a redirect
+_REDIRECT = re.compile(r"""'[^']*'|"[^"]*"|(?<![0-9&>])>>?\s*('[^']*'|"[^"]*"|[^\s;&|<>'"]+)""")
+WRITERS = {"echo", "printf", "cat"}
+_DECODE_FLAGS = {"-d", "--decode", "-D"}
+_CHMOD_FLAG = re.compile(r"^(?:-[Rvfc]+|--[a-z-]+)$")
+
+
+def _args(seg: str, name: str) -> list[str]:
+    """words after the command itself, past any sudo or path prefix."""
+    toks = words(seg)
+    i = next((i for i, t in enumerate(toks) if posixpath.basename(t) == name), len(toks))
+    return toks[i + 1:]
+
+
+def written_files(line: str) -> list[str]:
+    """paths a line writes by hand: echo/printf/cat/base64 -d with > or >>, or tee."""
+    out = []
+    for seg in segments(line):
+        name = command_name(seg)
+        if name == "tee":
+            out += [t for t in _args(seg, "tee") if not t.startswith("-")]
+        elif name in WRITERS or (name == "base64" and _DECODE_FLAGS & set(words(seg))):
+            out += [m.group(1) for m in _REDIRECT.finditer(seg) if m.group(1)]
+    paths = (p.strip("'\"") for p in out)
+    return list(dict.fromkeys(p for p in paths if p and not p.startswith("/dev/")))
+
+
+def _executable_mode(mode: str) -> bool:
+    if re.fullmatch(r"[0-7]{3,4}", mode):
+        return any(int(d) & 1 for d in mode[-3:])
+    return any(re.search(r"\+[rwxXst]*x", part) for part in mode.split(","))
+
+
+def chmodded_executable(line: str) -> list[str]:
+    """file names a line makes executable: chmod +x x, chmod 755 x"""
+    out = []
+    for seg in segments(line):
+        if command_name(seg) != "chmod":
+            continue
+        args = [t for t in _args(seg, "chmod") if not _CHMOD_FLAG.match(t)]
+        if len(args) >= 2 and _executable_mode(args[0]):
+            out += [posixpath.basename(a) for a in args[1:]]
+    return list(dict.fromkeys(o for o in out if o))
+
+
 def pipes_to_shell(line: str) -> bool:
     return bool(_SHELL_PIPE.search(line or ""))
 

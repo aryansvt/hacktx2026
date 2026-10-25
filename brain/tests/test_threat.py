@@ -1,6 +1,6 @@
 import pytest
 
-from brain.threat import apply, bump, level_for_command, level_for_event, max_level
+from brain.threat import apply, bump, level_for_command, level_for_event, max_level, payload_writes
 
 
 def test_failed_logins_only_is_low():
@@ -71,3 +71,36 @@ def test_threat_never_goes_down():
 def test_helpers():
     assert bump("low") == "med"
     assert max_level("low", "high", "med") == "high"
+
+
+@pytest.mark.parametrize("line,written", [
+    ("chmod +x /tmp/.d", [".d"]),
+    ("./.d", [".d"]),
+    ("sh k", ["k"]),
+    ("echo -ne '\x7fELF' > /tmp/.d; chmod +x /tmp/.d", []),
+    ("echo f0VMRgI= | base64 -d > /tmp/k && bash /tmp/k", []),
+    ("printf 'id' | tee run.sh; sh run.sh", []),
+])
+def test_running_a_self_written_file_is_critical(line, written):
+    assert level_for_command(line, [], written) == "critical"
+
+
+def test_writing_a_file_alone_is_not_critical():
+    assert level_for_command("echo -ne '\x7fELF' > /tmp/.d", [], []) == "low"
+    assert level_for_command("chmod +x /tmp/.d", [], []) == "low"
+
+
+@pytest.mark.parametrize("line", [
+    "echo '* * * * * /tmp/x' > /etc/cron.d/x; chmod +x /etc/cron.d/x",
+    "echo '/tmp/x &' >> /etc/rc.local; chmod +x /etc/rc.local",
+    "cd /etc; echo '/tmp/x &' >> rc.local; chmod 755 rc.local",
+    "echo ssh-rsa AAAA >> ~/.ssh/authorized_keys; chmod 700 ~/.ssh/authorized_keys",
+    "cat > /etc/systemd/system/x.service << EOF; chmod +x /etc/systemd/system/x.service",
+    "echo '* * * * * /tmp/x' | tee /var/spool/cron/crontabs/root; chmod +x /var/spool/cron/crontabs/root",
+])
+def test_writing_persistence_files_stays_high(line):
+    assert level_for_command(line, [], []) == "high"
+
+
+def test_payload_writes_skip_persistence_targets():
+    assert payload_writes("echo x > /tmp/a; echo y >> /etc/rc.local; echo z > ~/.ssh/authorized_keys") == ["a"]

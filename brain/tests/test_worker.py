@@ -140,3 +140,29 @@ async def test_quick_scan_classified_before_session_end():
         VALIDATOR.validate(ev)
     s = await brain.store.get(raws[0]["session_id"])
     assert s.kind == "bot"
+
+
+async def test_dropper_sequence_goes_critical():
+    r = fakeredis.FakeAsyncRedis()
+    brain = Brain(r, SETTINGS, FakeGeo())
+    raws = load_fixture("bot")
+    start, login, cmd = raws[0], raws[5], raws[6]
+    lines = [
+        "cd /tmp",
+        "echo -ne '\x7f\x45\x4c\x46\x02\x01' > .d",
+        "echo -ne '\x00\x00\x00\x00' >> .d",
+        "chmod +x .d",
+        "./.d",
+    ]
+    await brain.handle(start)
+    await brain.handle(login)
+    threats = []
+    for i, line in enumerate(lines):
+        ev = dict(cmd, event_id=f"00000000-0000-4000-8000-{i:012d}",
+                  detail=dict(cmd["detail"], input=line, output=""))
+        out = await brain.handle(ev)
+        threats.append(out[0]["attacker"]["threat"])
+    assert threats[:3] == ["med", "med", "med"]
+    assert threats[3:] == ["critical", "critical"]
+    s = await brain.store.get(start["session_id"])
+    assert s.written == [".d"] and s.downloads == []

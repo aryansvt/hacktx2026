@@ -39,6 +39,7 @@ class Session:
     commands: list = field(default_factory=list)  # {ts, input, output}
     tripwires: list = field(default_factory=list)  # {ts, id, reasons}
     downloads: list = field(default_factory=list)
+    written: list = field(default_factory=list)  # files written by hand, e.g. echo > x
     techniques: list = field(default_factory=list)
     kind: str = "unknown"
     confidence: float = 0.0

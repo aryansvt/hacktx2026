@@ -1,12 +1,15 @@
 :root {
   --bg: #efe3c8;
-  --surface: #e1d5bc;
+  --surface: #d9c9a7;
   --ink: #1b1612;
   --muted: #574e40;
   --border: #a99e84;
   --gold: #d4a52b;
   --blue: #1f3c88;
   --primary: #c8412b;
+  /* title palette accents */
+  --tan: #d3b98a;
+  --terracotta: #b8643a;
   --radius: 3px;
   /* night sky behind the globe and gold leaf ornament */
   --midnight: #0b1330;

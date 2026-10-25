@@ -4,6 +4,8 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import styles from "./title.module.css";
 
 const KEY = "breadcrumbs:title-seen";
+// how long the closed book holds before opening on its own
+const HOLD_MS = 3800;
 
 // storybook title card: once per browser session, skippable, never in kiosk
 export default function TitleCard({ disabled }: { disabled: boolean }) {
@@ -19,7 +21,7 @@ export default function TitleCard({ disabled }: { disabled: boolean }) {
     if (seen) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPhase("page");
-    const t = setTimeout(() => setPhase("opening"), 2800);
+    const t = setTimeout(() => setPhase("opening"), HOLD_MS);
     return () => clearTimeout(t);
   }, [disabled]);
   const skip = useCallback(() => setPhase("opening"), []);

@@ -95,10 +95,19 @@
   font: 600 11px var(--font-ui);
 }
 .aura {
-  background: radial-gradient(circle, var(--kind-bot) 35%, rgba(200, 65, 43, 0.85) 40%, transparent 72%);
+  background: radial-gradient(
+    circle,
+    var(--kind-bot) 35%,
+    rgba(200, 65, 43, 0.85) 40%,
+    transparent 72%
+  );
 }
 .slime {
-  background: radial-gradient(ellipse at 50% 70%, rgba(79, 138, 60, 0.9), rgba(79, 138, 60, 0.35));
+  background: radial-gradient(
+    ellipse at 50% 70%,
+    rgba(79, 138, 60, 0.9),
+    rgba(79, 138, 60, 0.35)
+  );
   border-radius: 50% 50% 40% 40%;
 }
 .dragon {

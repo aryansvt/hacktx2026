@@ -1,4 +1,4 @@
-# deps for scripts/sim. brain deps (for tune.py rescoring): pip install -e contracts/py -e brain
+# deps for scripts/sim
 asyncssh>=2.14
 httpx>=0.27
 anthropic>=2.3

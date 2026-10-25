@@ -117,6 +117,84 @@ export function fixtures() {
   );
   return events;
 }
+// a looping demo script that hits every notable event: guest, tripwire, oracle, dragon
+type Step = [number, keyof DetailMap, DetailMap[keyof DetailMap]];
+const script: Step[] = [
+  [2, "session_start", { guest_name: "Ada" }],
+  [2, "login_success", { username: "guest" }],
+  [1, "session_start", {}],
+  [1, "login_success", { username: "root" }],
+  [
+    1,
+    "tripwire",
+    {
+      tripwire_id: "agent-readme",
+      reasons: ["read the note left for AI agents"],
+    },
+  ],
+  [0, "session_start", {}],
+  [0, "login_fail", { username: "admin" }],
+  [
+    0,
+    "classified",
+    { reasons: ["fixed command script", "sub 50ms between commands"] },
+  ],
+  [
+    0,
+    "dossier",
+    {
+      summary: "Demo data: a known Mirai variant scanning port 22 since June.",
+      sources: [
+        { title: "AbuseIPDB report", url: "https://www.abuseipdb.com/" },
+        { title: "GreyNoise sighting", url: "https://viz.greynoise.io/" },
+        {
+          title: "MITRE: Brute Force",
+          url: "https://attack.mitre.org/techniques/T1110/",
+        },
+      ],
+    },
+  ],
+  [5, "session_start", {}],
+  [5, "login_success", { username: "root" }],
+  [
+    5,
+    "command",
+    {
+      command: "cat /etc/shadow",
+      output: "root:*:19000:0:99999:7:::",
+      response_ms: 18,
+      answered_by: "engine",
+      techniques: ["T1003.008"],
+    },
+  ],
+  [6, "session_start", {}],
+  [0, "session_end", { duration_s: 43, command_count: 0 }],
+];
+export function demoStep(tick: number): AttackEvent {
+  const [i, type, detail] = script[tick % script.length];
+  const round = Math.floor(tick / script.length);
+  const e = fixtureEvent(
+    i,
+    `demo-${i}-${round}`,
+    type,
+    detail as never,
+    1000 + tick,
+  );
+  const now = { ...e, timestamp: new Date().toISOString() } as AttackEvent;
+  // the guest is a judge at our table: no ip_hash, guest source
+  return i === 2
+    ? ({
+        ...now,
+        source: "guest",
+        attacker: {
+          ...now.attacker,
+          ip_hash: null,
+          kind: "human",
+          reputation: "harmless",
+        },
+      } as AttackEvent)
+    : now;
+}
 export function createMockAdapter(): DataAdapter {
   let events = fixtures();
   let state = events.reduce(ingest, emptyDomain());
@@ -145,41 +223,12 @@ export function createMockAdapter(): DataAdapter {
       timer = setInterval(() => {
         const ping = parseTransport('{"type":"ping"}');
         if (ping) listener(ping);
-        if (tick >= 56) return;
-        const i = Math.floor(tick / 4) % 7,
-          phase = tick % 4,
-          id = `fixture-stream-${Math.floor(tick / 4)}`;
-        const e =
-          phase === 0
-            ? fixtureEvent(i, id, "session_start", {}, 100 + tick)
-            : phase === 1
-              ? fixtureEvent(
-                  i,
-                  id,
-                  "classified",
-                  { reasons: ["fixture behavior sample"] },
-                  100 + tick,
-                )
-              : phase === 2
-                ? fixtureEvent(
-                    i,
-                    id,
-                    "login_fail",
-                    { username: "admin" },
-                    100 + tick,
-                  )
-                : fixtureEvent(
-                    i,
-                    id,
-                    "session_end",
-                    { duration_s: 12, command_count: 0 },
-                    100 + tick,
-                  );
+        const e = demoStep(tick);
         events = [...events, e];
         state = ingest(state, e);
         listener(e);
         tick++;
-      }, 4000);
+      }, 3000);
       return () => {
         clearInterval(timer);
       };

@@ -42,7 +42,9 @@ Each row has:
 
 - `visits`: how many stored sessions that hash has (only the last 7 days are kept)
 - `first_seen`: earliest session start
-- `last_seen`, `latest_session_id`, `source`, `geo` and `attacker` (`kind`, `confidence`, `reputation`, `family`, `threat`): taken from the session with the most recent activity
+- `last_seen`, `latest_session_id`, `source`, `geo` and `attacker` (`reputation`, `family`, `threat`): taken from the session with the most recent activity
+- `attacker.kind` and `attacker.confidence`: taken from the most recent session that isn't `unknown`, so a returning bot doesn't flip back to `unknown` while its newest visit is still being classified. If no session was ever classified, they come from the latest one.
+- `max_threat`: the highest `threat` across all of that hash's sessions
 - `session_ids`: newest activity first, capped at 50, so `session_ids[0]` is always `latest_session_id`
 
 Rows are ordered by `last_seen`, newest first. The grouping runs in SQL with a window function over `sessions`, so it scans the table on every call. That is fine at 7 days of honeypot traffic. Add an index on `(attacker->>'ip_hash', last_seen)` if it gets slow.

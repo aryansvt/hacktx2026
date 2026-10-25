@@ -142,5 +142,31 @@ async def test_list_attackers(store):
     assert a["visits"] == 52 and a["latest_session_id"] == "a51"
     assert len(a["session_ids"]) == 50 and a["session_ids"][0] == "a51" and a["session_ids"][-1] == "a02"
     assert a["attacker"]["kind"] == "human"
+    assert a["max_threat"] == "high"
     assert [r["ip_hash"] for r in await store.list_attackers(100, "mock")] == [h2]
     assert len(await store.list_attackers(1, None)) == 1
+
+
+async def test_list_attackers_kind_from_newest_classified_and_max_threat(store):
+    now = datetime.now(timezone.utc)
+    h = "4" * 64
+    t = lambda s: now - timedelta(seconds=s)  # noqa: E731
+    await store.persist(make_event("session_start", "b-1", t(900), ip_hash=h, kind="unknown", threat="low"))
+    await store.persist(make_event("classified", "b-1", t(899), ip_hash=h, kind="bot", threat="critical"))
+    await store.persist(make_event("session_start", "b-2", t(600), ip_hash=h, kind="unknown", threat="low"))
+    await store.persist(make_event("classified", "b-2", t(599), ip_hash=h, kind="bot", confidence=0.75,
+                                   threat="med"))
+    await store.persist(make_event("session_start", "b-3", t(30), ip_hash=h, kind="unknown", threat="low",
+                                   confidence=0.0))
+    await store.persist(make_event("session_start", "u-1", t(20), ip_hash="5" * 64, kind="unknown",
+                                   threat="med", confidence=0.0))
+
+    rows = [to_row(r) for r in await store.list_attackers(100, None)]
+    v = validator("attacker_summary")
+    for r in rows:
+        v.validate(r)
+    unknown, bot = rows
+    assert bot["latest_session_id"] == "b-3"
+    assert bot["attacker"]["kind"] == "bot" and bot["attacker"]["confidence"] == 0.75
+    assert bot["attacker"]["threat"] == "low" and bot["max_threat"] == "critical"
+    assert unknown["attacker"]["kind"] == "unknown" and unknown["max_threat"] == "med"

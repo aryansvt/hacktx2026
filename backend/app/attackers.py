@@ -5,10 +5,16 @@ from typing import Any
 from .sessions import fmt_ts
 
 PROFILE = ("kind", "confidence", "reputation", "family", "threat")
+THREATS = ("low", "med", "high", "critical")
 
 
 def to_row(row: dict[str, Any]) -> dict[str, Any]:
     """store row -> attacker_summary. drops client and anything else not in the profile."""
+    attacker = {k: row["attacker"][k] for k in PROFILE}
+    # a returning bot keeps its label while the newest visit is still unknown
+    classified = row.get("classified")
+    if classified:
+        attacker["kind"], attacker["confidence"] = classified["kind"], classified["confidence"]
     return {
         "ip_hash": row["ip_hash"],
         "visits": row["visits"],
@@ -17,6 +23,7 @@ def to_row(row: dict[str, Any]) -> dict[str, Any]:
         "latest_session_id": row["latest_session_id"],
         "source": row["source"],
         "geo": row["geo"],
-        "attacker": {k: row["attacker"][k] for k in PROFILE},
+        "attacker": attacker,
+        "max_threat": row["max_threat"],
         "session_ids": list(row["session_ids"]),
     }

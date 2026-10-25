@@ -19,6 +19,7 @@
     "threat": "low",
     "client": "SSH-2.0-Go"
   },
+  "max_threat": "high",
   "session_ids": [
     "ssh-7f3a9c21",
     "ssh-5b21e0d4",

@@ -11,6 +11,7 @@ from jsonschema import Draft202012Validator
 
 from app.config import Settings
 from app.main import create_app
+from app.attackers import THREATS
 from app.sessions import apply_event, fmt_ts
 from app.store import MAX_SESSION_IDS
 
@@ -38,6 +39,8 @@ def make_event(
     country: str = "NL",
     detail: dict | None = None,
     ip_hash: str | None = "a" * 64,
+    threat: str = "high",
+    confidence: float = 0.9,
 ) -> dict:
     """valid public event of any type."""
     defaults = {
@@ -68,10 +71,10 @@ def make_event(
         "geo": {"lat": 52.37, "lon": 4.9, "country": country, "city": "Amsterdam"},
         "attacker": {
             "kind": kind,
-            "confidence": 0.9,
+            "confidence": confidence,
             "reputation": reputation,
             "family": None,
-            "threat": "high",
+            "threat": threat,
             "client": "SSH-2.0-Go",
             "ip_hash": ip_hash,
         },
@@ -122,6 +125,7 @@ class FakeStore:
         for h, rows in groups.items():
             rows.sort(key=lambda r: (r["last_seen"], r["session_id"]), reverse=True)
             latest = rows[0]
+            classified = next((r for r in rows if r["attacker"]["kind"] != "unknown"), None)
             out.append({
                 "ip_hash": h,
                 "visits": len(rows),
@@ -131,6 +135,8 @@ class FakeStore:
                 "source": latest["source"],
                 "geo": latest["geo"],
                 "attacker": latest["attacker"],
+                "classified": classified["attacker"] if classified else None,
+                "max_threat": max((r["attacker"]["threat"] for r in rows), key=THREATS.index),
                 "session_ids": [r["session_id"] for r in rows[:MAX_SESSION_IDS]],
             })
         out.sort(key=lambda a: (a["last_seen"], a["ip_hash"]), reverse=True)

@@ -18,6 +18,7 @@
     "family": "mirai",
     "threat": "low"
   },
+  "max_threat": "high",
   "session_ids": [
     "ssh-00000000",
     "ssh-00000001",

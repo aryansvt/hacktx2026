@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 import asyncpg
 
+from .attackers import THREATS
 from .sessions import apply_event, parse_ts
 
 log = logging.getLogger(__name__)
@@ -149,7 +150,10 @@ class PgStore:
         return [dict(r) for r in rows]
 
     async def list_attackers(self, limit: int, source: str | None) -> list[dict[str, Any]]:
-        """one row per ip_hash, profile from its most recent session. attackers.to_row shapes it."""
+        """one row per ip_hash, profile from its most recent session. attackers.to_row shapes it.
+
+        classified is the newest session that isn't unknown (or null), max_threat the worst threat.
+        """
         rows = await self.pool.fetch(
             """
             with ranked as (
@@ -157,25 +161,35 @@ class PgStore:
                        attacker->>'ip_hash' as ip_hash,
                        row_number() over (
                            partition by attacker->>'ip_hash' order by last_seen desc, session_id desc
-                       ) as rn
+                       ) as rn,
+                       -- classified sessions first, newest first
+                       row_number() over (
+                           partition by attacker->>'ip_hash'
+                           order by attacker->>'kind' = 'unknown', last_seen desc, session_id desc
+                       ) as crn
                 from sessions
                 where attacker->>'ip_hash' is not null and ($2::text is null or source = $2)
             ), grouped as (
                 select ip_hash, count(*) as visits, min(started_at) as first_seen,
-                       array_agg(session_id order by rn) filter (where rn <= $3) as session_ids
+                       array_agg(session_id order by rn) filter (where rn <= $3) as session_ids,
+                       max(array_position($4::text[], attacker->>'threat')) as threat_rank
                 from ranked
                 group by ip_hash
             )
             select g.ip_hash, g.visits, g.first_seen, r.last_seen, r.session_id as latest_session_id,
-                   r.source, r.geo, r.attacker, g.session_ids
+                   r.source, r.geo, r.attacker, g.session_ids,
+                   ($4::text[])[g.threat_rank] as max_threat,
+                   case when c.attacker->>'kind' <> 'unknown' then c.attacker end as classified
             from grouped g
             join ranked r on r.ip_hash = g.ip_hash and r.rn = 1
+            join ranked c on c.ip_hash = g.ip_hash and c.crn = 1
             order by r.last_seen desc, g.ip_hash desc
             limit $1
             """,
             limit,
             source,
             MAX_SESSION_IDS,
+            list(THREATS),
         )
         return [dict(r) for r in rows]
 

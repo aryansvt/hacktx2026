@@ -34,6 +34,10 @@
     "attacker": {
       "$ref": "#/$defs/AttackerProfile"
     },
+    "max_threat": {
+      "$ref": "#/$defs/threat",
+      "description": "highest threat across every stored session"
+    },
     "session_ids": {
       "type": "array",
       "items": {
@@ -53,6 +57,7 @@
     "source",
     "geo",
     "attacker",
+    "max_threat",
     "session_ids"
   ],
   "additionalProperties": false,
@@ -148,13 +153,7 @@
           "description": "known botnet or tool family, if any"
         },
         "threat": {
-          "type": "string",
-          "enum": [
-            "low",
-            "med",
-            "high",
-            "critical"
-          ]
+          "$ref": "#/$defs/threat"
         }
       },
       "required": [
@@ -165,7 +164,16 @@
         "threat"
       ],
       "additionalProperties": false,
-      "description": "profile from the attacker's most recent session"
+      "description": "kind and confidence from the most recent session that isn't unknown, the rest from the most recent session"
+    },
+    "threat": {
+      "type": "string",
+      "enum": [
+        "low",
+        "med",
+        "high",
+        "critical"
+      ]
     }
   }
 }

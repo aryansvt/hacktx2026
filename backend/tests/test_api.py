@@ -174,6 +174,7 @@ def test_attackers_grouped_and_newest_first(app, visitors):
     assert h1["geo"]["country"] == "DE"
     assert h1["attacker"] == {"kind": "human", "confidence": 0.9, "reputation": "unknown",
                               "family": None, "threat": "high"}
+    assert h1["max_threat"] == "high"
 
 
 def test_attackers_skip_null_ip_hash_and_leak_nothing(app, visitors):
@@ -207,3 +208,32 @@ def test_attackers_cap_session_ids_at_50(app, store):
     assert row["visits"] == 55
     assert len(row["session_ids"]) == 50
     assert row["session_ids"][0] == "s54" and row["session_ids"][-1] == "s05"
+
+
+def test_returning_bot_keeps_its_kind_and_worst_threat(app, store):
+    now = datetime.now(timezone.utc)
+    t = lambda s: now - timedelta(seconds=s)  # noqa: E731
+    seed(store, [
+        make_event("session_start", "b-1", t(900), ip_hash=H1, kind="unknown", threat="low"),
+        make_event("classified", "b-1", t(899), ip_hash=H1, kind="bot", confidence=0.7, threat="critical"),
+        make_event("session_start", "b-2", t(600), ip_hash=H1, kind="unknown", threat="low"),
+        make_event("classified", "b-2", t(599), ip_hash=H1, kind="bot", confidence=0.75, threat="med"),
+        # the newest visit hasn't been classified yet
+        make_event("session_start", "b-3", t(30), ip_hash=H1, kind="unknown", reputation="unknown",
+                   threat="low", confidence=0.0),
+        # never classified at all
+        make_event("session_start", "u-1", t(20), ip_hash=H2, kind="unknown", threat="med", confidence=0.0),
+    ])
+    with TestClient(app) as client:
+        body = client.get("/attackers").json()
+    v = validator("attacker_summary")
+    for row in body:
+        v.validate(row)
+    unknown, bot = body
+    assert bot["latest_session_id"] == "b-3"
+    # kind and confidence come from the newest classified session, the rest from the newest one
+    assert bot["attacker"] == {"kind": "bot", "confidence": 0.75, "reputation": "unknown",
+                               "family": None, "threat": "low"}
+    assert bot["max_threat"] == "critical"
+    assert unknown["attacker"]["kind"] == "unknown" and unknown["attacker"]["confidence"] == 0.0
+    assert unknown["max_threat"] == "med"

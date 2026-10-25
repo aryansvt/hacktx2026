@@ -83,6 +83,10 @@ class AttackerSummary(BaseModel):
     ]
     geo: Geo
     attacker: AttackerProfile
+    max_threat: Annotated[
+        Literal["low", "med", "high", "critical"],
+        Field(description="highest threat across every stored session"),
+    ]
     session_ids: Annotated[
         list[SessionId],
         Field(

@@ -250,3 +250,70 @@ async def test_two_bad_stories_fall_back_to_the_template():
     assert len(llm.calls) == 2
     assert text == template_story(s)
     assert "slime (AI agent)" in text and "clay golem" not in text
+
+
+# ---- budget: wild scans get the template, our sessions get the reserve ----
+
+def scan_only():
+    s = Session("x", source="wild", geo={"lat": 0, "lon": 0, "country": "BG", "city": None})
+    s.add_login(0, "root", False)
+    return s
+
+
+async def test_login_only_wild_scan_never_calls_the_llm():
+    llm = FakeLLM("A clay golem (bot) story.")
+    s = scan_only()
+    assert await Storyteller(llm).tell(s) == template_story(s)
+    assert llm.calls == []
+
+
+async def test_wild_session_that_got_in_still_gets_an_llm_story():
+    s = polite_agent()
+    s.source, s.reputation = "wild", "unknown"
+    s.kind = "agent"
+    llm = FakeLLM("A fae (AI agent) slipped in from Austin and read the README.")
+    assert await Storyteller(llm).tell(s) == "A fae (AI agent) slipped in from Austin and read the README."
+    assert len(llm.calls) == 1
+
+
+@pytest.mark.parametrize("source", ["guest", "team"])
+async def test_our_sessions_use_the_reserved_llm(source):
+    s = polite_agent()
+    s.source = source
+    who = "guest knight (human)" if source == "guest" else "slime (AI agent)"
+    if source == "guest":
+        s.kind = "human"
+    capped = FakeLLM(fail=CapReached())
+    reserved = FakeLLM(f"A {who} came by from Austin and politely said hello.")
+    text = await Storyteller(capped, reserved=reserved).tell(s)
+    assert text == f"A {who} came by from Austin and politely said hello."
+    assert capped.calls == [] and len(reserved.calls) == 1
+
+
+# ---- guests are knights ----
+
+@pytest.mark.parametrize("attacker", [
+    {"kind": "human", "threat": "med", "reputation": "unknown"},
+    {"kind": "human", "threat": "critical", "reputation": "unknown"},
+    {"kind": "agent", "threat": "high", "reputation": "harmless"},
+])
+def test_guests_are_always_guest_knights(attacker):
+    assert creature(attacker, "guest") == "guest knight"
+    assert creature(attacker, "team") != "guest knight"
+
+
+def guest_session():
+    s = Session("g", source="guest", kind="human", confidence=0.99, threat="med",
+                geo={"lat": 30.29, "lon": -97.74, "country": "US", "city": "Austin"})
+    s.add_login(0, "guest", True)
+    s.add_command(1, "ls", "")
+    return s
+
+
+def test_guest_template_facts_and_check_use_the_knight():
+    s = guest_session()
+    assert template_story(s).startswith("A guest knight (human) from our own table in Austin")
+    assert "creature: guest knight" in facts(s)
+    assert "never names the guest knight" in problem("A dark mage (human) strolled in from Austin.", s)
+    assert "dark mage" in problem("A guest knight (human), a dark mage at heart, strolled in from Austin.", s)
+    assert problem("A guest knight (human) strolled in from Austin.", s) is None

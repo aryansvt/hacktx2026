@@ -78,3 +78,40 @@ def test_make_llm_needs_a_key():
     assert isinstance(make_llm(Settings(anthropic_api_key="k"), r), CappedLLM)
     assert make_llm(Settings(llm_provider="gemini"), r) is None
     assert isinstance(make_llm(Settings(llm_provider="gemini", gemini_api_key="k"), r), CappedLLM)
+
+
+async def _spend(llm, n):
+    """how many of n calls went through before the cap."""
+    ok = 0
+    for _ in range(n):
+        try:
+            await llm.complete("s", "u")
+            ok += 1
+        except CapReached:
+            pass
+    return ok
+
+
+async def test_wild_traffic_cannot_spend_the_reserve():
+    inner = FakeLLM("ok")
+    llm = CappedLLM(inner, fakeredis.FakeAsyncRedis(), cap=10, reserved=4)
+    # wild calls stop at cap minus the reserve, however many try
+    assert await _spend(llm, 50) == 6
+    # guest and team still get the held back part, and nothing past the cap
+    assert await _spend(llm.ours(), 10) == 4
+    assert len(inner.calls) == 10
+
+
+async def test_our_sessions_use_the_shared_pool_first():
+    llm = CappedLLM(FakeLLM("ok"), fakeredis.FakeAsyncRedis(), cap=10, reserved=4)
+    assert await _spend(llm.ours(), 8) == 8
+    # 6 came from the shared pool, so wild traffic has nothing left
+    assert await _spend(llm, 3) == 0
+    assert await _spend(llm.ours(), 5) == 2
+
+
+def test_reserve_never_takes_the_whole_cap():
+    r = fakeredis.FakeAsyncRedis()
+    assert CappedLLM(FakeLLM(), r, cap=5, reserved=40).reserved == 4
+    assert CappedLLM(FakeLLM(), r, cap=0, reserved=40).reserved == 0
+    assert make_llm(Settings(anthropic_api_key="k", llm_hourly_cap=200, llm_reserved_hourly=40), r).reserved == 40

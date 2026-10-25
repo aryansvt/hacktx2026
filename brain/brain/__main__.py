@@ -49,7 +49,7 @@ async def main() -> None:
     if serp is None:
         log.warning("SERPAPI_KEY not set, no reputation lookups")
 
-    brain = Brain(r, s, geo, reputation=ReputationService(r, serp, llm, db, s), storyteller=Storyteller(llm))
+    brain = Brain(r, s, geo, reputation=ReputationService(r, serp, llm, db, s), storyteller=Storyteller(llm, reserved=llm.ours() if llm else None))
 
     task = asyncio.create_task(brain.run())
     loop = asyncio.get_running_loop()

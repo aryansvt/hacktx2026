@@ -2,7 +2,7 @@
 // three.js objects are mutated per frame by design
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -90,6 +90,7 @@ export function Trails({
   }, []);
   useEffect(() => () => crumbGeo.dispose(), [crumbGeo]);
   const crumbs = useRef<Points>(null!);
+  const dpr = useThree((s) => s.viewport.dpr);
   const gold = useMemo(() => new Color(palette.goldLight), []);
   const goldDeep = useMemo(() => new Color(palette.gold), []);
 
@@ -136,7 +137,7 @@ export function Trails({
         <lineBasicMaterial
           vertexColors
           transparent
-          opacity={0.55}
+          opacity={0.75}
           blending={AdditiveBlending}
           depthWrite={false}
         />
@@ -144,8 +145,8 @@ export function Trails({
       <points ref={crumbs} geometry={crumbGeo} frustumCulled={false}>
         <pointsMaterial
           vertexColors
-          size={0.045}
-          sizeAttenuation
+          size={5.5 * dpr}
+          sizeAttenuation={false}
           map={dotTexture()}
           transparent
           blending={AdditiveBlending}

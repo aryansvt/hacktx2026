@@ -2,7 +2,7 @@
 // three.js objects are mutated per frame by design
 /* eslint-disable react-hooks/immutability */
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import {
   AdditiveBlending,
   BufferGeometry,
@@ -93,6 +93,7 @@ export function Effects({ reduced }: { reduced: boolean }) {
   const ripples = useRef<(Ripple | null)[]>(Array(RIPPLES).fill(null));
   const heat = useRef<{ pos: Vector3; born: number }[]>([]);
   const clock = useRef(0);
+  const dpr = useThree((s) => s.viewport.dpr);
 
   useEffect(() => {
     const g = group.current;
@@ -250,8 +251,8 @@ export function Effects({ reduced }: { reduced: boolean }) {
       <points geometry={heatGeo} frustumCulled={false}>
         <pointsMaterial
           vertexColors
-          size={0.16}
-          sizeAttenuation
+          size={26 * dpr}
+          sizeAttenuation={false}
           map={glowTexture()}
           transparent
           blending={AdditiveBlending}

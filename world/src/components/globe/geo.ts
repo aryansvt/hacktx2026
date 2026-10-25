@@ -67,7 +67,7 @@ export function hash01(s: string, salt = 0): number {
 }
 
 // a spot on the gate ring around the castle, offset on the surface by angle and radius
-export function gateSlot(key: string, castle: V3, inner = 0.17, outer = 0.32): V3 {
+export function gateSlot(key: string, castle: V3, inner = 0.23, outer = 0.38): V3 {
   const up = norm(castle);
   // tangent basis at the castle
   const ref: V3 = Math.abs(up[1]) > 0.9 ? [1, 0, 0] : [0, 1, 0];

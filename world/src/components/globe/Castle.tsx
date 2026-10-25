@@ -63,7 +63,7 @@ export function Castle({ reduced }: { reduced: boolean }) {
     screen.castle.visible = castleUp.dot(cam.position) > 0;
   });
   return (
-    <group position={castlePos} quaternion={quat}>
+    <group position={castlePos} quaternion={quat} scale={1.4}>
       {/* gate ring on the ground where creatures gather */}
       <mesh ref={ring} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.004, 0]}>
         <ringGeometry args={[0.15, 0.165, 64]} />
@@ -87,7 +87,7 @@ export function Castle({ reduced }: { reduced: boolean }) {
       </mesh>
       {/* light beam into the sky */}
       <mesh ref={beam} position={[0, 0.55, 0]}>
-        <cylinderGeometry args={[0.006, 0.03, 1.1, 16, 1, true]} />
+        <cylinderGeometry args={[0.004, 0.02, 1.1, 16, 1, true]} />
         <meshBasicMaterial
           color={palette.goldLight}
           transparent

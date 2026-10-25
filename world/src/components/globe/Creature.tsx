@@ -23,7 +23,7 @@ import { useView } from "@/lib/view-store";
 import { GLOBE_R, gateSlot, hash01, progressFor, slerp, toXYZ, type V3 } from "./geo";
 import { castlePos, castleUp, glowTexture, live, palette } from "./shared";
 
-const BASE = 0.04;
+const BASE = 0.056;
 const elite = new Set<Variant>(["stone-golem", "witch", "cursed-fae"]);
 
 interface Mats {

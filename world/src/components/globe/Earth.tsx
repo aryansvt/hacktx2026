@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import {
   AdditiveBlending,
   BackSide,
@@ -48,7 +48,7 @@ const graticule = (() => {
 
 // stars live in a shell well outside the globe; the near side falls behind the camera
 const starGeo = (() => {
-  const n = 9000;
+  const n = 14000;
   const pos = new Float32Array(n * 3),
     seed = new Float32Array(n),
     size = new Float32Array(n);
@@ -71,6 +71,8 @@ const starGeo = (() => {
 })();
 
 export function Earth({ reduced }: { reduced: boolean }) {
+  // ortho points are sized in device pixels
+  const dpr = useThree((s) => s.viewport.dpr);
   const stars = useRef<ShaderMaterial>(null!);
   const atmosphere = useMemo(
     () =>
@@ -127,14 +129,14 @@ export function Earth({ reduced }: { reduced: boolean }) {
   const starMat = useMemo(
     () =>
       new ShaderMaterial({
-        uniforms: { time: { value: 0 } },
+        uniforms: { time: { value: 0 }, dpr: { value: 1 } },
         vertexShader: `
           attribute float seed; attribute float size;
-          uniform float time;
+          uniform float time; uniform float dpr;
           varying float vA;
           void main() {
             vA = 0.55 + 0.45 * sin(time * (0.6 + fract(seed) * 1.6) + seed);
-            gl_PointSize = size;
+            gl_PointSize = size * dpr;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }`,
         fragmentShader: `
@@ -151,7 +153,9 @@ export function Earth({ reduced }: { reduced: boolean }) {
     [],
   );
   useFrame((_, dt) => {
-    if (!reduced && stars.current) stars.current.uniforms.time.value += dt;
+    if (!stars.current) return;
+    stars.current.uniforms.dpr.value = dpr;
+    if (!reduced) stars.current.uniforms.time.value += dt;
   });
   return (
     <>
@@ -195,11 +199,11 @@ export function Earth({ reduced }: { reduced: boolean }) {
         </bufferGeometry>
         <pointsMaterial
           vertexColors
-          size={0.026}
-          sizeAttenuation
+          size={2.5 * dpr}
+          sizeAttenuation={false}
           map={dotTexture()}
-          alphaTest={0.3}
           transparent
+          depthWrite={false}
         />
       </points>
     </>

@@ -1,0 +1,780 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Event",
+  "description": "public event sent to the frontend over ws /live. never contains raw ips or passwords.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SessionStartEvent"
+    },
+    {
+      "$ref": "#/$defs/LoginFailEvent"
+    },
+    {
+      "$ref": "#/$defs/LoginSuccessEvent"
+    },
+    {
+      "$ref": "#/$defs/CommandEvent"
+    },
+    {
+      "$ref": "#/$defs/TripwireEvent"
+    },
+    {
+      "$ref": "#/$defs/ClassifiedEvent"
+    },
+    {
+      "$ref": "#/$defs/DossierEvent"
+    },
+    {
+      "$ref": "#/$defs/StoryEvent"
+    },
+    {
+      "$ref": "#/$defs/SessionEndEvent"
+    }
+  ],
+  "discriminator": {
+    "propertyName": "type"
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "opaque id shared by every event in one session"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,6})?Z$",
+      "description": "utc, iso 8601, ends in Z, e.g. 2026-10-24T18:03:11.250Z"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "wild",
+        "guest",
+        "team",
+        "mock"
+      ],
+      "description": "wild = real internet traffic. only wild counts in stats"
+    },
+    "protocol": {
+      "type": "string",
+      "enum": [
+        "ssh",
+        "http"
+      ]
+    },
+    "username": {
+      "type": "string",
+      "maxLength": 256
+    },
+    "output": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "response_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "answered_by": {
+      "type": "string",
+      "enum": [
+        "engine",
+        "llm",
+        "cache"
+      ]
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "Geo": {
+      "type": "object",
+      "title": "Geo",
+      "properties": {
+        "lat": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "rounded to 2 decimals"
+        },
+        "lon": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "rounded to 2 decimals"
+        },
+        "country": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "description": "iso 3166-1 alpha-2, XX if unknown"
+        },
+        "city": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "lat",
+        "lon",
+        "country",
+        "city"
+      ],
+      "additionalProperties": false
+    },
+    "Attacker": {
+      "type": "object",
+      "title": "Attacker",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "bot",
+            "human",
+            "agent",
+            "unknown"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "reputation": {
+          "type": "string",
+          "enum": [
+            "harmless",
+            "unknown",
+            "malicious"
+          ]
+        },
+        "family": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "known botnet or tool family, if any"
+        },
+        "threat": {
+          "type": "string",
+          "enum": [
+            "low",
+            "med",
+            "high",
+            "critical"
+          ]
+        },
+        "client": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "ssh client version or http user agent"
+        },
+        "ip_hash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "salted sha256 of the source ip"
+        }
+      },
+      "required": [
+        "kind",
+        "confidence",
+        "reputation",
+        "family",
+        "threat",
+        "client",
+        "ip_hash"
+      ],
+      "additionalProperties": false
+    },
+    "DossierSource": {
+      "type": "object",
+      "title": "DossierSource",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "title",
+        "url"
+      ],
+      "additionalProperties": false
+    },
+    "SessionStartDetail": {
+      "title": "SessionStartDetail",
+      "type": "object",
+      "properties": {
+        "guest_name": {
+          "type": "string",
+          "maxLength": 64
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "SessionStartEvent": {
+      "type": "object",
+      "title": "SessionStartEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "session_start"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/SessionStartDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "LoginFailDetail": {
+      "title": "LoginFailDetail",
+      "type": "object",
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/username"
+        }
+      },
+      "required": [
+        "username"
+      ],
+      "additionalProperties": false
+    },
+    "LoginFailEvent": {
+      "type": "object",
+      "title": "LoginFailEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "login_fail"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/LoginFailDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "LoginSuccessDetail": {
+      "title": "LoginSuccessDetail",
+      "type": "object",
+      "properties": {
+        "username": {
+          "$ref": "#/$defs/username"
+        }
+      },
+      "required": [
+        "username"
+      ],
+      "additionalProperties": false
+    },
+    "LoginSuccessEvent": {
+      "type": "object",
+      "title": "LoginSuccessEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "login_success"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/LoginSuccessDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "CommandDetail": {
+      "title": "CommandDetail",
+      "type": "object",
+      "properties": {
+        "command": {
+          "type": "string",
+          "description": "the command as shown publicly"
+        },
+        "output": {
+          "$ref": "#/$defs/output"
+        },
+        "response_ms": {
+          "$ref": "#/$defs/response_ms"
+        },
+        "answered_by": {
+          "$ref": "#/$defs/answered_by"
+        },
+        "techniques": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^T\\d{4}(\\.\\d{3})?$"
+          },
+          "description": "mitre att&ck technique ids"
+        }
+      },
+      "required": [
+        "command",
+        "output",
+        "response_ms",
+        "answered_by",
+        "techniques"
+      ],
+      "additionalProperties": false
+    },
+    "CommandEvent": {
+      "type": "object",
+      "title": "CommandEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "command"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/CommandDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "TripwireDetail": {
+      "title": "TripwireDetail",
+      "type": "object",
+      "properties": {
+        "tripwire_id": {
+          "type": "string"
+        },
+        "reasons": {
+          "$ref": "#/$defs/reasons"
+        }
+      },
+      "required": [
+        "tripwire_id",
+        "reasons"
+      ],
+      "additionalProperties": false
+    },
+    "TripwireEvent": {
+      "type": "object",
+      "title": "TripwireEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "tripwire"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/TripwireDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "ClassifiedDetail": {
+      "title": "ClassifiedDetail",
+      "type": "object",
+      "properties": {
+        "reasons": {
+          "$ref": "#/$defs/reasons"
+        }
+      },
+      "required": [
+        "reasons"
+      ],
+      "additionalProperties": false
+    },
+    "ClassifiedEvent": {
+      "type": "object",
+      "title": "ClassifiedEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "classified"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/ClassifiedDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "DossierDetail": {
+      "title": "DossierDetail",
+      "type": "object",
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DossierSource"
+          }
+        }
+      },
+      "required": [
+        "summary",
+        "sources"
+      ],
+      "additionalProperties": false
+    },
+    "DossierEvent": {
+      "type": "object",
+      "title": "DossierEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "dossier"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/DossierDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "StoryDetail": {
+      "title": "StoryDetail",
+      "type": "object",
+      "properties": {
+        "story": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "story"
+      ],
+      "additionalProperties": false
+    },
+    "StoryEvent": {
+      "type": "object",
+      "title": "StoryEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "story"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/StoryDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "SessionEndDetail": {
+      "title": "SessionEndDetail",
+      "type": "object",
+      "properties": {
+        "duration_s": {
+          "type": "number",
+          "minimum": 0
+        },
+        "command_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "duration_s",
+        "command_count"
+      ],
+      "additionalProperties": false
+    },
+    "SessionEndEvent": {
+      "type": "object",
+      "title": "SessionEndEvent",
+      "properties": {
+        "event_id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "session_id": {
+          "$ref": "#/$defs/session_id"
+        },
+        "type": {
+          "const": "session_end"
+        },
+        "timestamp": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "protocol": {
+          "$ref": "#/$defs/protocol"
+        },
+        "geo": {
+          "$ref": "#/$defs/Geo"
+        },
+        "attacker": {
+          "$ref": "#/$defs/Attacker"
+        },
+        "detail": {
+          "$ref": "#/$defs/SessionEndDetail"
+        }
+      },
+      "required": [
+        "event_id",
+        "session_id",
+        "type",
+        "timestamp",
+        "source",
+        "protocol",
+        "geo",
+        "attacker",
+        "detail"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

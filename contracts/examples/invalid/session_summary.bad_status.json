@@ -1,0 +1,25 @@
+{
+  "session_id": "ssh-7f3a9c21",
+  "started_at": "2026-10-24T18:03:11Z",
+  "ended_at": null,
+  "source": "wild",
+  "geo": {
+    "lat": 52.37,
+    "lon": 4.9,
+    "country": "NL",
+    "city": "Amsterdam"
+  },
+  "attacker": {
+    "kind": "bot",
+    "confidence": 0.92,
+    "reputation": "malicious",
+    "family": "mirai",
+    "threat": "high",
+    "client": "SSH-2.0-Go",
+    "ip_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "status": "lost",
+  "login_fails": 3,
+  "command_count": 6,
+  "story": null
+}

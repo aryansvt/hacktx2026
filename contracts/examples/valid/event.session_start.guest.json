@@ -1,0 +1,26 @@
+{
+  "event_id": "3f1c2b4a-0000-4000-8000-000000000099",
+  "session_id": "ssh-7f3a9c21",
+  "type": "session_start",
+  "timestamp": "2026-10-24T18:03:11.250Z",
+  "source": "guest",
+  "protocol": "ssh",
+  "geo": {
+    "lat": 30.29,
+    "lon": -97.74,
+    "country": "US",
+    "city": "Austin"
+  },
+  "attacker": {
+    "kind": "human",
+    "confidence": 1,
+    "reputation": "harmless",
+    "family": null,
+    "threat": "low",
+    "client": null,
+    "ip_hash": null
+  },
+  "detail": {
+    "guest_name": "Ada"
+  }
+}

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hacktx-contracts"
+version = "0.1.0"
+description = "shared pydantic models generated from the contracts/ json schemas"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.7,<3"]
+
+[project.optional-dependencies]
+# pinned so regenerated code matches what is committed
+dev = [
+  "pytest>=8",
+  "jsonschema[format]>=4.22",
+  "datamodel-code-generator==0.86.0",
+  "black==26.10.1",
+  "isort==8.0.1",
+]
+
+[tool.setuptools]
+packages = ["hacktx_contracts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

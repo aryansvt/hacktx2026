@@ -1,0 +1,25 @@
+{
+  "total_sessions": 1204,
+  "active_now": 7,
+  "countries": 41,
+  "breaches": 88,
+  "by_kind": {
+    "bot": 1100,
+    "human": 90,
+    "agent": 6,
+    "unknown": 8
+  },
+  "by_reputation": {
+    "harmless": 12,
+    "unknown": 640,
+    "malicious": 552
+  },
+  "per_minute": [
+    {
+      "t": "2026-10-24T18:03:00Z",
+      "bot": 4,
+      "human": 1,
+      "agent": 0
+    }
+  ]
+}

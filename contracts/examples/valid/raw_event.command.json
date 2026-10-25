@@ -1,0 +1,15 @@
+{
+  "event_id": "9b2e0d11-0000-4000-8000-000000000003",
+  "session_id": "ssh-7f3a9c21",
+  "type": "command",
+  "timestamp": "2026-10-24T18:03:11.250Z",
+  "source": "wild",
+  "protocol": "ssh",
+  "src_ip": "203.0.113.42",
+  "detail": {
+    "input": "cat /etc/passwd",
+    "output": "root:x:0:0:root:/root:/bin/bash\n",
+    "response_ms": 14,
+    "answered_by": "engine"
+  }
+}

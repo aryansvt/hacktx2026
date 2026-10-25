@@ -1,0 +1,29 @@
+{
+  "event_id": "3f1c2b4a-0000-4000-8000-000000000005",
+  "session_id": "ssh-7f3a9c21",
+  "type": "classified",
+  "timestamp": "2026-10-24T18:03:11.250Z",
+  "source": "wild",
+  "protocol": "ssh",
+  "geo": {
+    "lat": 52.37,
+    "lon": 4.9,
+    "country": "NL",
+    "city": "Amsterdam"
+  },
+  "attacker": {
+    "kind": "bot",
+    "confidence": 0.92,
+    "reputation": "malicious",
+    "family": "mirai",
+    "threat": "high",
+    "client": "SSH-2.0-Go",
+    "ip_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "detail": {
+    "reasons": [
+      "fixed command script",
+      "sub 50ms between commands"
+    ]
+  }
+}

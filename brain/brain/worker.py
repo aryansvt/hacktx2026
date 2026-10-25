@@ -87,15 +87,16 @@ class Brain:
                 s.cls_kind, s.cls_conf = verdict.kind, verdict.confidence
                 out.append(build("classified", s, raw["timestamp"], {"reasons": verdict.reasons},
                                  derived_id(raw["event_id"], "classified")))
+            # picked under the lock so two events can't start the same lookup
+            targets = self.rep.targets(s, raw) if self.rep is not None else []
             await self.store.save(s)
 
-        self._schedule_followups(s, raw)
+        for target in targets:
+            self._spawn(sid, self._lookup(sid, target, raw))
+        self._schedule_story(s, raw)
         return out
 
-    def _schedule_followups(self, s: Session, raw: dict) -> None:
-        if self.rep is not None:
-            for target in self.rep.targets(s, raw):
-                self._spawn(s.session_id, self._lookup(s.session_id, target, raw))
+    def _schedule_story(self, s: Session, raw: dict) -> None:
         if self.story is not None and raw["type"] == "session_end":
             self._spawn(s.session_id, self._tell(s.session_id, raw), track=False)
 

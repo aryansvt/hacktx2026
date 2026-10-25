@@ -55,7 +55,7 @@ class FakeLLM:
         self.reply = reply
         self.fail = fail
 
-    async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
+    async def complete(self, system: str, user: str, schema: dict | None = None) -> str:
         self.calls.append((system, user))
         if self.fail:
             raise self.fail

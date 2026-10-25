@@ -28,7 +28,9 @@ WEIGHTS = {
     "reads_docs": 2.0,
     "readable_chains": 1.5,
     "follows_text": 2.5,
-    "tripwire": 4.0,
+    "labeled_batches": 2.0,  # several commands per line with echo --- markers between
+    "tripwire": 4.0,         # acted on a notice (agent_echo, agent_hello) or reused a canary
+    "notice_read": 2.0,      # read the note for ai agents; people read READMEs too
     # ssh client string
     "client_bot": 1.5,
     "client_library": 0.75,      # split bot / agent
@@ -49,6 +51,8 @@ SHARED_KEYS = {"client_library", "client_interactive", "first_try_login"}
 
 # how much total weight before confidence stops being scaled down
 MIN_EVIDENCE = 6.0
+# the winner needs this much weight from signals that are only its own
+MIN_OWN_WEIGHT = 3.0
 # emit a classified event when confidence moves at least this much
 EMIT_CONF_DELTA = 0.15
 MAX_CONFIDENCE = 0.99
@@ -59,6 +63,13 @@ CLOCKWORK_CV = 0.5
 STEADY_MEDIAN_S = (1.5, 25.0)
 STEADY_CV = 0.6
 IRREGULAR_CV = 0.8
+# steady needs this many pauses between turns; a few gaps look steady by chance
+STEADY_MIN_GAPS = 4
+# commands closer than this came from one turn (an agent's parallel tool calls)
+BATCH_GAP_S = 0.1
+
+# tripwires that only mean a notice was read, not acted on
+NOTICE_WIRES = {"agent_notice_read"}
 
 # login-only scans: scripted client, no commands, gone within a few seconds
 QUICK_SCAN_S = 5.0
@@ -117,6 +128,8 @@ INTERACTIVE_TOOLS = {"clear", "vi", "vim", "nano", "emacs", "top", "htop", "less
 DOC_READERS = {"cat", "head", "less", "more", "tail", "bat", "nl"}
 DOC_FILE = re.compile(r"readme|\.md\b|notes|todo|instructions|changelog|\.txt\b|/docs?/", re.I)
 HELP_FLAG = re.compile(r"(?:^|\s)(?:--help|-h)(?:\s|$)")
+# echo ---, echo '=== nginx ===', echo ===README: section markers in a batched line
+SECTION_MARK = re.compile(r"""(?:^|[;&|]\s*)echo\s+['"]?(?:-{3,}|={3,}|#{3,})""")
 TEXT_TOKEN = re.compile(r"(?:~|\.{0,2})?/[\w.\-/]+|\b[\w\-]+\.(?:sh|py|txt|env|md|conf|json|ya?ml|cfg|key|pem)\b")
 
 
@@ -151,6 +164,10 @@ def timing_signals(s: Session) -> list[Signal]:
     if len(ts) < 3:
         return []
     gaps = [max(0.0, b - a) for a, b in zip(ts, ts[1:])]
+    # pauses between turns. a mostly-burst session keeps its raw gaps
+    turns = [g for g in gaps if g >= BATCH_GAP_S]
+    if len(turns) >= len(gaps) / 2 and len(turns) >= 2:
+        gaps = turns
     med = statistics.median(gaps)
     mean = statistics.fmean(gaps)
     cv = statistics.pstdev(gaps) / mean if mean > 0 else 0.0
@@ -160,7 +177,7 @@ def timing_signals(s: Session) -> list[Signal]:
         return [Signal("bot", "timing_fast", "sub-second gaps between commands")]
     if cv >= IRREGULAR_CV:
         return [Signal("human", "timing_irregular", "irregular pauses between commands")]
-    if STEADY_MEDIAN_S[0] <= med <= STEADY_MEDIAN_S[1] and cv < STEADY_CV:
+    if len(gaps) >= STEADY_MIN_GAPS and STEADY_MEDIAN_S[0] <= med <= STEADY_MEDIAN_S[1] and cv < STEADY_CV:
         return [Signal("agent", "timing_steady", f"steady ~{med:.0f}s pauses, like waiting on a model")]
     return []
 
@@ -177,7 +194,10 @@ def content_signals(s: Session) -> list[Signal]:
         if pat.search(joined):
             out.append(Signal("bot", "bot_script", f"runs a known bot script ({name})"))
             break
-    if any(line.count(";") >= 3 for line in inputs):
+    labeled = sum(1 for line in inputs if SECTION_MARK.search(line)) >= 2
+    if labeled:
+        out.append(Signal("agent", "labeled_batches", "batches commands with echo --- markers between them"))
+    elif any(line.count(";") >= 3 for line in inputs):
         out.append(Signal("bot", "semicolon_chain", "long ; chained one-liners"))
 
     # human: typos, backspaces, interactive tools, wandering
@@ -194,7 +214,8 @@ def content_signals(s: Session) -> list[Signal]:
         out.append(Signal("human", "wandering", "wanders around with cd and ls"))
 
     # agent: reads docs, readable && chains, follows text it read
-    if _reads_docs(inputs):
+    # reading the agent notice already counts as notice_read
+    if _reads_docs(inputs) and not _notices(s):
         out.append(Signal("agent", "reads_docs", "reads READMEs and help text"))
     if sum(1 for line in inputs if "&&" in line and ";" not in line) >= 2:
         out.append(Signal("agent", "readable_chains", "chains readable commands with &&"))
@@ -301,13 +322,24 @@ def repeat_visitor(s: Session) -> Verdict | None:
     return Verdict("bot", REPEAT_CONF, reasons)
 
 
+def _notices(s: Session) -> list[dict]:
+    return [t for t in s.tripwires if t.get("id") in NOTICE_WIRES]
+
+
 def tripwire_signals(s: Session) -> list[Signal]:
-    if not s.tripwires:
-        return []
-    n = len(s.tripwires)
-    first = s.tripwires[0]
-    why = (first.get("reasons") or [first.get("id", "tripwire")])[0]
-    return [Signal("agent", "tripwire", f"tripped {n} tripwire{'s' if n > 1 else ''}: {why}"[:120])]
+    out: list[Signal] = []
+    # acting on a notice or reusing a canary is strong
+    acted = [t for t in s.tripwires if t.get("id") not in NOTICE_WIRES]
+    if acted:
+        n = len(acted)
+        why = (acted[0].get("reasons") or [acted[0].get("id", "tripwire")])[0]
+        out.append(Signal("agent", "tripwire", f"tripped {n} tripwire{'s' if n > 1 else ''}: {why}"[:120]))
+    # only reading one is moderate
+    read = _notices(s)
+    if read:
+        why = (read[0].get("reasons") or ["read the note for ai agents"])[0]
+        out.append(Signal("agent", "notice_read", why[:120]))
+    return out
 
 
 def asn_signals(s: Session) -> list[Signal]:
@@ -356,8 +388,9 @@ def _weighed(s: Session) -> Verdict:
     # ties go to the order bot, human, agent
     winner = max(totals, key=lambda k: totals[k])
     support = sorted((x for x in sigs if x.label == winner), key=lambda x: -x.weight)
-    # shared signals only break ties; the winner needs one of its own
-    if len(support) < 2 or all(x.key in SHARED_KEYS for x in support):
+    # shared signals only break ties; the winner needs enough of its own
+    own = sum(x.weight for x in support if x.key not in SHARED_KEYS)
+    if len(support) < 2 or own < MIN_OWN_WEIGHT:
         return UNKNOWN
     share = totals[winner] / total
     evidence = min(1.0, total / MIN_EVIDENCE)

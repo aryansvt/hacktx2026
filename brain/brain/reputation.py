@@ -29,6 +29,10 @@ REP_RANK = {"unknown": 0, "harmless": 1, "malicious": 2}
 BORING_DOMAINS = ("github.com", "githubusercontent.com", "gitlab.com", "google.com", "googleapis.com",
                   "ubuntu.com", "debian.org", "centos.org", "python.org", "pypi.org", "npmjs.org",
                   "npmjs.com", "docker.com", "docker.io", "cloudflare.com", "microsoft.com")
+# reserved tlds (rfc 2606) never resolve, so nothing to find
+RESERVED_TLDS = (".invalid", ".test", ".example", ".localhost")
+# team sessions are our own sims; worth a lookup, but stats stay wild-only
+LOOKUP_SOURCES = ("wild", "team")
 
 VERDICT_SCHEMA = {
     "type": "object",
@@ -75,7 +79,7 @@ def _sha(text: str) -> str:
 
 
 def _boring(domain: str) -> bool:
-    return any(domain == d or domain.endswith("." + d) for d in BORING_DOMAINS)
+    return domain.endswith(RESERVED_TLDS) or any(domain == d or domain.endswith("." + d) for d in BORING_DOMAINS)
 
 
 def stronger(current: str, new: str) -> bool:
@@ -94,10 +98,11 @@ class ReputationService:
 
     def eligible(self, s: Session) -> bool:
         """only spend searches on sessions that got in, tripped something or downloaded."""
-        return s.source == "wild" and (s.logged_in or bool(s.tripwires) or bool(s.downloads))
+        return s.source in LOOKUP_SOURCES and (s.logged_in or bool(s.tripwires) or bool(s.downloads))
 
     def candidates(self, s: Session, raw: dict) -> list[Target]:
-        out = [Target("ip", f'"{s.src_ip}"', f"ip:{s.ip_hash}", "the attacking ip")]
+        # a team ip is our own; never search it
+        out = [Target("ip", f'"{s.src_ip}"', f"ip:{s.ip_hash}", "the attacking ip")] if s.source == "wild" else []
         if raw["type"] == "command":
             line = raw["detail"]["input"]
             for d in domains(line):

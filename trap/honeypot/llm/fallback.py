@@ -29,11 +29,13 @@ from ..events import now_ts
 from ..shell.engine import Engine, Result, ShellState
 from ..vfs import FsError, norm
 from . import prompt
-from .provider import LLMError, LLMTimeout, Provider
+from .provider import LLMError, LLMTimeout, Provider, Reply
 
 log = logging.getLogger("honeypot.llm")
 
-TIMEOUT = 2.5
+TIMEOUT = 6.0
+# warm the api connection when it's been idle this long
+KEEP_WARM = 120.0
 SESSION_CAP = 30
 BREAKER_FAILURES = 5
 BREAKER_WINDOW = 60.0
@@ -85,6 +87,7 @@ class Resolved:
     answer: Answer | None
     outcome: str
     ms: int
+    calls: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -103,11 +106,55 @@ class LLMSession:
     missing: set[str] = field(default_factory=set)
 
 
-def parse_answer(text: str) -> Answer:
+_FENCE = re.compile(r"^```[a-zA-Z]*\s*|\s*```$")
+_STDOUT_START = re.compile(r'^\s*\{\s*"stdout"\s*:\s*"')
+
+
+def _load(text: str):
+    """the first json object in the reply, tolerating code fences and chatter around it."""
+    if not isinstance(text, str):
+        raise Invalid("not text")
+    body = _FENCE.sub("", text.strip())
+    start = body.find("{")
+    if start < 0:
+        raise Invalid("no json object")
     try:
-        data = json.loads(text)
-    except (json.JSONDecodeError, TypeError) as e:
+        return json.JSONDecoder().raw_decode(body, start)[0]
+    except json.JSONDecodeError as e:
         raise Invalid(f"not json: {e}") from e
+
+
+def salvage(text: str) -> Answer | None:
+    """a reply cut off by max_tokens: keep the stdout that made it, drop any fs changes."""
+    rest = _FENCE.sub("", text.strip())
+    m = _STDOUT_START.match(rest)
+    if not m:
+        return None
+    raw, i = [], m.end()
+    while i < len(rest):
+        c = rest[i]
+        if c == '"':
+            break
+        if c == "\\":
+            if i + 1 >= len(rest):
+                break
+            raw.append(rest[i : i + 2])
+            i += 2
+            continue
+        raw.append(c)
+        i += 1
+    try:
+        stdout = json.loads('"' + "".join(raw) + '"')
+    except json.JSONDecodeError:
+        # a \u escape cut in half; drop it
+        stdout = json.loads('"' + re.sub(r"\\u[0-9a-fA-F]{0,3}$", "", "".join(raw)) + '"')
+    # the last line is probably half a line
+    stdout = stdout.rsplit("\n", 1)[0] if "\n" in stdout else stdout
+    return Answer(stdout[:MAX_STDOUT])
+
+
+def parse_answer(text: str) -> Answer:
+    data = _load(text)
     if not isinstance(data, dict) or not isinstance(data.get("stdout"), str):
         raise Invalid("missing stdout")
     raw = data.get("fs_changes", [])
@@ -235,7 +282,8 @@ class CallLog:
             self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def write(self, record: dict) -> None:
-        log.info("llm %s %dms %s", record["outcome"], record["latency_ms"], record["command"][:200])
+        api = f" api {'+'.join(str(ms) for ms in record['api_ms'])}ms" if record.get("api_ms") else ""
+        log.info("llm %s %dms%s %s", record["outcome"], record["latency_ms"], api, record["command"][:200])
         if not self.path:
             return
         try:
@@ -256,8 +304,8 @@ class _Hook:
         self.records: list[dict] = []
         self.kinds: set[str] = set()
 
-    def _record(self, state: ShellState, argv: list[str], outcome: str, ms: int = 0) -> None:
-        self.records.append({
+    def _record(self, state: ShellState, argv: list[str], outcome: str, ms: int = 0, calls: list[dict] | None = None) -> None:
+        record = {
             "ts": now_ts(),
             "session": self.sess.session_id,
             "name": argv[0],
@@ -265,10 +313,16 @@ class _Hook:
             "cwd": state.cwd,
             "outcome": outcome,
             "latency_ms": ms,
-        })
+        }
+        if calls:
+            # each real api call, so slow calls and repairs show up on their own
+            record["api_ms"] = [c["ms"] for c in calls]
+            record["stop"] = calls[-1]["stop"]
+            record["output_tokens"] = sum(c["out"] for c in calls)
+        self.records.append(record)
 
-    def _fall_back(self, state: ShellState, argv: list[str], outcome: str, ms: int = 0) -> Result:
-        self._record(state, argv, outcome, ms)
+    def _fall_back(self, state: ShellState, argv: list[str], outcome: str, ms: int = 0, calls: list[dict] | None = None) -> Result:
+        self._record(state, argv, outcome, ms, calls)
         self.sess.missing.add(argv[0])
         return not_found(argv[0])
 
@@ -278,12 +332,12 @@ class _Hook:
         done = self.resolved.get(key)
         if done is not None:
             if done.answer is None:
-                return self._fall_back(state, argv, done.outcome, done.ms)
+                return self._fall_back(state, argv, done.outcome, done.ms, done.calls)
             res = apply(done.answer, state, argv)
             if res is None:
                 self.fb.cache.pop(key, None)
-                return self._fall_back(state, argv, "rejected", done.ms)
-            self._record(state, argv, "ok", done.ms)
+                return self._fall_back(state, argv, "rejected", done.ms, done.calls)
+            self._record(state, argv, "ok", done.ms, done.calls)
             self.kinds.add("llm")
             return res
         if name in self.sess.missing:
@@ -328,11 +382,16 @@ class LLMFallback:
         self.clock = clock
         self.cache: OrderedDict[Key, Answer] = OrderedDict()
         self.calls = CallLog(log_path)
+        self.last_used = clock()
+        self._warm_task: asyncio.Task | None = None
 
     def session(self, session_id: str) -> LLMSession:
         return LLMSession(session_id)
 
     async def close(self) -> None:
+        if self._warm_task:
+            self._warm_task.cancel()
+            await asyncio.gather(self._warm_task, return_exceptions=True)
         await self.provider.close()
 
     def blocked(self, sess: LLMSession) -> str:
@@ -372,11 +431,13 @@ class LLMFallback:
     async def _resolve(self, miss: Miss, sess: LLMSession, resolved: dict[Key, Resolved]) -> None:
         t0 = self.clock()
         answer = None
+        calls: list[dict] = []
         try:
-            answer = await asyncio.wait_for(self._ask(miss, sess), TIMEOUT)
+            answer = await asyncio.wait_for(self._ask(miss, sess, calls), TIMEOUT)
             outcome = "ok"
         except (TimeoutError, LLMTimeout):
             outcome = "timeout"
+            log.warning("llm timed out after %dms: %s", int((self.clock() - t0) * 1000), miss.command[:200])
             self.breaker.failure()
         except Blocked as e:
             outcome = e.reason
@@ -393,23 +454,52 @@ class LLMFallback:
             outcome = "error"
             self.breaker.failure()
         ms = int((self.clock() - t0) * 1000)
-        resolved[miss.key] = Resolved(answer, outcome, ms)
+        resolved[miss.key] = Resolved(answer, outcome, ms, calls)
         if answer is not None:
             self.cache[miss.key] = answer
             self.cache.move_to_end(miss.key)
             while len(self.cache) > CACHE_SIZE:
                 self.cache.popitem(last=False)
 
-    async def _ask(self, miss: Miss, sess: LLMSession) -> Answer:
-        messages = [{"role": "user", "content": miss.user_prompt}]
+    async def _call(self, messages: list[dict], sess: LLMSession, calls: list[dict]) -> Reply:
         self._charge(sess)
-        text = await self.provider.complete(self.system_prompt, messages, prompt.SCHEMA)
+        self.last_used = self.clock()
+        reply = await self.provider.complete(self.system_prompt, messages, prompt.SCHEMA)
+        calls.append({"ms": reply.ms, "stop": reply.stop, "in": reply.input_tokens, "out": reply.output_tokens})
+        log.info("llm call %dms stop=%s in=%d out=%d", reply.ms, reply.stop, reply.input_tokens, reply.output_tokens)
+        return reply
+
+    async def _ask(self, miss: Miss, sess: LLMSession, calls: list[dict]) -> Answer:
+        messages = [{"role": "user", "content": miss.user_prompt}]
+        reply = await self._call(messages, sess, calls)
         try:
-            answer = parse_answer(text)
+            answer = parse_answer(reply.text)
         except Invalid:
-            # one repair attempt
-            messages += [{"role": "assistant", "content": text}, {"role": "user", "content": prompt.REPAIR}]
-            self._charge(sess)
-            answer = parse_answer(await self.provider.complete(self.system_prompt, messages, prompt.SCHEMA))
+            # cut off by max_tokens: another try would be cut off too, so keep what came
+            cut = salvage(reply.text) if reply.stop == "max_tokens" else None
+            if cut is not None:
+                answer = cut
+            else:
+                # one repair attempt
+                messages += [{"role": "assistant", "content": reply.text}, {"role": "user", "content": prompt.REPAIR}]
+                answer = parse_answer((await self._call(messages, sess, calls)).text)
         screen(answer)
         return answer
+
+    def start(self) -> None:
+        """warm the connection now, and keep it warm while nobody is using it."""
+        if self._warm_task is None:
+            self._warm_task = asyncio.create_task(self._keep_warm())
+
+    async def _keep_warm(self) -> None:
+        first = True
+        while True:
+            if first or self.clock() - self.last_used >= KEEP_WARM:
+                try:
+                    ms = await self.provider.warm()
+                    self.last_used = self.clock()
+                    log.info("llm connection %s in %dms", "warmed" if first else "kept warm", ms)
+                except Exception as e:
+                    log.warning("llm warm-up failed: %s", e)
+            first = False
+            await asyncio.sleep(KEEP_WARM / 4)

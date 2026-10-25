@@ -1,12 +1,14 @@
+import asyncio
 import json
+import time
 
 import pytest
 
 from honeypot.config import Settings
 from honeypot.llm import fallback as fb_mod
 from honeypot.llm import prompt
-from honeypot.llm.fallback import Invalid, LLMFallback, parse_answer
-from honeypot.llm.provider import LLMError, LLMTimeout, make_provider
+from honeypot.llm.fallback import Invalid, LLMFallback, parse_answer, salvage
+from honeypot.llm.provider import LLMError, LLMTimeout, Reply, make_provider
 from honeypot.shell.engine import load_system
 
 from llm_fakes import FakeLLM, answer
@@ -353,3 +355,89 @@ def test_settings_from_env():
     s = Settings.from_env({"ANTHROPIC_API_KEY": " k ", "LLM_HOURLY_CAP": "7", "LLM_PROVIDER": "Anthropic"})
     assert (s.anthropic_api_key, s.llm_hourly_cap, s.llm_provider) == ("k", 7, "anthropic")
     assert Settings.from_env({}).llm_hourly_cap == 200
+
+
+# latency fixes: plain json, salvage, per-call logging, warm connection
+
+def test_timeout_is_six_seconds():
+    assert fb_mod.TIMEOUT == 6.0
+
+
+def test_plain_json_is_found_inside_fences_and_chatter():
+    fenced = "```json\n" + json.dumps(answer("hi")) + "\n```"
+    assert parse_answer(fenced).stdout == "hi"
+    chatty = "Sure:\n" + json.dumps(answer("hi")) + "\nThat's it."
+    assert parse_answer(chatty).stdout == "hi"
+    with pytest.raises(Invalid):
+        parse_answer("no json here")
+
+
+def test_salvage_keeps_complete_lines_of_a_cut_off_stdout():
+    cut = r'{"stdout": "line one\nline two\nline thr'
+    assert salvage(cut).stdout == "line one\nline two"
+    assert salvage(cut).changes == ()
+    assert salvage(r'{"stdout": "tab\there\nnext \u00e9 \u00').stdout == "tab\there"
+    assert salvage('{"fs_changes": [], "stdout": "x') is None
+    assert salvage("not json") is None
+
+
+async def test_cut_off_reply_is_salvaged_without_a_repair_call(setup):
+    llm, fb, shell = setup(Reply(r'{"stdout": "On branch main\nYour branch is up to date\nnothing to com', 30, "max_tokens", 900, 512))
+    res = await shell()("git status")
+    assert res.out == "On branch main\nYour branch is up to date\n"
+    assert len(llm.calls) == 1
+    [rec] = records(setup.log)
+    assert rec["outcome"] == "ok" and rec["stop"] == "max_tokens"
+
+
+async def test_bad_reply_that_was_not_cut_off_still_gets_repaired(setup):
+    llm, fb, shell = setup(Reply('{"stdout": "x', 30, "end_turn"), answer("fixed"))
+    assert (await shell()("git status")).out == "fixed\n"
+    assert len(llm.calls) == 2
+
+
+async def test_every_api_call_is_logged_with_its_latency(setup):
+    llm, fb, shell = setup(Reply("garbage", 1200, "end_turn", 900, 10), Reply(json.dumps(answer("ok")), 800, "end_turn", 950, 20))
+    await shell()("git status")
+    [rec] = records(setup.log)
+    assert rec["api_ms"] == [1200, 800]
+    assert rec["output_tokens"] == 30 and rec["stop"] == "end_turn"
+    # cache hits have no api calls
+    await shell(sid="b")("git status")
+    assert "api_ms" not in records(setup.log)[1]
+
+
+async def test_connection_is_warmed_at_start_and_kept_warm_when_idle(setup, monkeypatch):
+    monkeypatch.setattr(fb_mod, "KEEP_WARM", 0.04)
+    llm, fb, shell = setup(answer("ok"))
+    fb.clock = time.monotonic
+    fb.last_used = fb.clock()
+    fb.start()
+    fb.start()
+    await asyncio.sleep(0.005)
+    assert llm.warms == 1
+    await asyncio.sleep(0.12)
+    assert llm.warms >= 2
+    await fb.close()
+    assert llm.closed and fb._warm_task.done()
+
+
+async def test_warm_up_failure_is_only_logged(setup):
+    llm, fb, shell = setup(answer("ok"))
+
+    async def broken():
+        raise RuntimeError("no route")
+
+    llm.warm = broken
+    fb.start()
+    await asyncio.sleep(0.01)
+    assert not fb._warm_task.done()
+    await fb.close()
+    assert (await shell()("git status")).out == "ok\n"
+
+
+def test_prompt_asks_for_plain_json(engine, base):
+    system = prompt.system_prompt(load_system())
+    assert 'Reply with exactly one JSON object and nothing else, no code fences, with "stdout" first' in system
+    assert '{"stdout": "<terminal output>", "fs_changes": [' in system
+    assert "at most 20 lines" in system

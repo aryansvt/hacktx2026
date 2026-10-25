@@ -35,6 +35,8 @@ async def serve(settings: Settings) -> None:
     if task:
         log.info("sending events to %s/ingest", settings.core_url)
     if fallback:
+        # opens the api connection now, so the first attacker command doesn't pay for it
+        fallback.start()
         log.info("llm fallback on, %d calls an hour, log %s", settings.llm_hourly_cap, settings.llm_log_path)
     try:
         await server.wait_closed()

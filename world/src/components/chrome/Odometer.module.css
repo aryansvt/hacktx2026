@@ -1,0 +1,38 @@
+.odo {
+  display: inline-flex;
+  font-family: var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.col {
+  position: relative;
+  display: inline-block;
+  height: 1em;
+  width: 0.62em;
+  overflow: hidden;
+  animation: grow 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.strip {
+  position: absolute;
+  inset: 0 0 auto 0;
+  display: flex;
+  flex-direction: column;
+  transition: transform 700ms cubic-bezier(0.22, 1.2, 0.36, 1);
+  will-change: transform;
+}
+.strip > span {
+  display: block;
+  height: 1em;
+  text-align: center;
+}
+.sep {
+  display: inline-block;
+  width: 0.3em;
+  text-align: center;
+}
+@keyframes grow {
+  from {
+    width: 0;
+    opacity: 0;
+  }
+}

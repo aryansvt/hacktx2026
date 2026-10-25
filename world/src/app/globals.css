@@ -26,6 +26,12 @@
   --font-body: "EB Garamond", Georgia, serif;
   --font-display: "Pirata One", Georgia, serif;
   --font-ui: Inter, Arial, sans-serif;
+  /* ornament: parchment grain and gold corner flourishes */
+  --parchment-noise: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.25 0 0 0 0 0.1 0 0 0 0.1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  --flourish-tl: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><g  fill='none' stroke='%23a87c14' stroke-width='1.2' stroke-linecap='round'><path d='M2 24V8a6 6 0 0 1 6-6h16'/><path d='M6 21c0-8 4-13 13-14'/><path d='M2 14c3 0 5-2 5-5'/><circle cx='12' cy='12' r='1.8' fill='%23d4a52b' stroke='none'/></g></svg>");
+  --flourish-tr: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><g transform='translate(26 0) scale(-1 1)' fill='none' stroke='%23a87c14' stroke-width='1.2' stroke-linecap='round'><path d='M2 24V8a6 6 0 0 1 6-6h16'/><path d='M6 21c0-8 4-13 13-14'/><path d='M2 14c3 0 5-2 5-5'/><circle cx='12' cy='12' r='1.8' fill='%23d4a52b' stroke='none'/></g></svg>");
+  --flourish-bl: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><g transform='translate(0 26) scale(1 -1)' fill='none' stroke='%23a87c14' stroke-width='1.2' stroke-linecap='round'><path d='M2 24V8a6 6 0 0 1 6-6h16'/><path d='M6 21c0-8 4-13 13-14'/><path d='M2 14c3 0 5-2 5-5'/><circle cx='12' cy='12' r='1.8' fill='%23d4a52b' stroke='none'/></g></svg>");
+  --flourish-br: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'><g transform='translate(26 26) scale(-1 -1)' fill='none' stroke='%23a87c14' stroke-width='1.2' stroke-linecap='round'><path d='M2 24V8a6 6 0 0 1 6-6h16'/><path d='M6 21c0-8 4-13 13-14'/><path d='M2 14c3 0 5-2 5-5'/><circle cx='12' cy='12' r='1.8' fill='%23d4a52b' stroke='none'/></g></svg>");
   color-scheme: light;
 }
 * {
@@ -35,7 +41,8 @@ html,
 body {
   margin: 0;
   min-height: 100%;
-  background: var(--bg);
+  /* night sky behind the globe; panels bring their own parchment */
+  background: var(--midnight);
   color: var(--ink);
 }
 body {

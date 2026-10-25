@@ -1,0 +1,19 @@
+/* sits in the gap under the timeline (timeline ends 20px above the bottom) */
+.footer {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: 3px;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 40px);
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 14px;
+  color: rgba(239, 227, 200, 0.72);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  letter-spacing: 0.01em;
+}

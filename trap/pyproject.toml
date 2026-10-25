@@ -13,6 +13,11 @@ dependencies = [
   "regex>=2024.5",
   # only used by sender.py, and only to reach CORE_URL
   "httpx>=0.27,<1",
+  # only used by llm/anthropic_client.py, and only to reach api.anthropic.com
+  "anthropic>=2.3,<3",
+  # the fake website. plain uvicorn on h11, no websockets
+  "fastapi>=0.115,<1",
+  "uvicorn>=0.30,<1",
   # install the shared models first: pip install -e ../contracts/py
   "hacktx-contracts",
 ]
@@ -21,7 +26,7 @@ dependencies = [
 dev = ["pytest>=8", "pytest-asyncio>=0.23"]
 
 [tool.setuptools]
-packages = ["honeypot", "honeypot.shell", "honeypot.shell.commands"]
+packages = ["honeypot", "honeypot.shell", "honeypot.shell.commands", "honeypot.llm"]
 
 [tool.setuptools.package-data]
 honeypot = ["data/*.json"]

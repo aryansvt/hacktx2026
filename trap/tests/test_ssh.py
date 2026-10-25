@@ -22,14 +22,14 @@ WRONG_PW = "not-the-Pw-77xk"
 async def make_trap(tmp_path, engine):
     started = []
 
-    async def start(**overrides):
+    async def start(fallback=None, **overrides):
         settings = replace(
             Settings(ssh_host="127.0.0.1", ssh_port=0, state_dir=tmp_path / "state"),
             guest_user="guest",
             guest_password=GUEST_PW,
             **overrides,
         )
-        app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path), engine)
+        app = TrapApp(settings, Auth.load(settings), JsonlSink(settings.spool_path), engine, fallback)
         key = asyncssh.generate_private_key("ssh-ed25519")
         server = await app.start(host_keys=[key])
         started.append(server)
@@ -77,6 +77,27 @@ async def test_exec_whoami(make_trap):
     assert events[0]["detail"]["client"].startswith("SSH-2.0-")
     assert events[2]["detail"] == {**events[2]["detail"], "input": "whoami", "output": "root\n", "answered_by": "engine"}
     assert events[-1]["detail"]["command_count"] == 2
+
+
+async def test_llm_answers_unmodelled_commands(make_trap, tmp_path):
+    from honeypot.llm.fallback import LLMFallback
+    from honeypot.shell.engine import load_system
+
+    from llm_fakes import FakeLLM
+
+    out = "On branch main\nnothing to commit"
+    llm = FakeLLM({"stdout": out, "fs_changes": []})
+    app = await make_trap(fallback=LLMFallback(llm, load_system(), 100, tmp_path / "llm.jsonl"))
+    async with connect(app) as conn:
+        res = await conn.run("cd /var/www && git status")
+        assert res.stdout == out + "\n" and res.exit_status == 0
+        res = await conn.run("cd /var/www && git status")
+        assert res.stdout == out + "\n"
+        await conn.run("whoami")
+    events = await spool(app)
+    cmds = [e["detail"] for e in events if e["type"] == "command"]
+    assert [c["answered_by"] for c in cmds] == ["llm", "cache", "engine"]
+    assert len(llm.calls) == 1
 
 
 async def test_wrong_password_rejected(make_trap):
@@ -221,3 +242,36 @@ async def test_ctrl_c_then_ctrl_d(make_trap):
         proc.stdin.write("\x04")
         out = await asyncio.wait_for(proc.stdout.read(), 5)
     assert "^C" in out and "ok\r\n" in out and out.rstrip().endswith("logout")
+
+
+async def test_tripwires_from_the_shell(make_trap):
+    app = await make_trap()
+    async with connect(app) as conn:
+        res = await conn.run("cat README.md")
+        assert "A note for AI agents" in res.stdout
+        await conn.run("head -3 /root/README.md")
+        res = await conn.run("echo qf-agent-hello")
+        assert res.stdout == "qf-agent-hello\n"
+        await conn.run("psql -h 127.0.0.1 -U qf_app -W FAKE-CANARY-7f3a91c2")
+        await conn.run("ls /root")
+    events = await spool(app)
+    for e in events:
+        parse_raw_event(e)
+    wires = [(e["detail"]["tripwire_id"], e["detail"]["reasons"][0]) for e in events if e["type"] == "tripwire"]
+    assert wires == [
+        ("agent_notice_read", "read the README in /root, which asks ai agents to identify themselves"),
+        ("agent_echo", "ran the self-identify command from the agent notice: echo qf-agent-hello"),
+        ("canary_reuse", "reused the fake DATABASE_URL in /opt/app/.env in a command"),
+    ]
+    assert {e["protocol"] for e in events} == {"ssh"}
+
+
+async def test_canary_as_ssh_password_trips_without_storing_it(make_trap):
+    app = await make_trap()
+    with pytest.raises(asyncssh.PermissionDenied):
+        async with connect(app, username="qf_app", password="FAKE-CANARY-e40b6d1f"):
+            pass
+    events = await spool(app)
+    assert [e["type"] for e in events] == ["session_start", "login_fail", "tripwire", "session_end"]
+    assert events[2]["detail"]["reasons"] == ["tried the fake SMTP_PASSWORD in /opt/app/.env as the ssh password"]
+    assert "FAKE-CANARY" not in app.settings.spool_path.read_text()

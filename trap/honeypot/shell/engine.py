@@ -4,11 +4,12 @@ virtual fs and system.json. nothing is ever executed on the host.
 
 from __future__ import annotations
 
+import copy
 import fnmatch
 import json
 import posixpath
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Callable
 
@@ -49,6 +50,19 @@ class ShellState:
     public_ip: str = "203.0.113.10"
     exit_requested: bool = False
     oldpwd: str = ""
+    # answers installed commands the engine doesn't model (the llm fallback sets it per line)
+    unknown: Callable[["ShellState", list[str], str | None], Result] | None = None
+
+    def snapshot(self) -> tuple:
+        """everything a line can change, so a line can be rolled back and run again."""
+        values = {f.name: copy.copy(getattr(self, f.name)) for f in fields(self) if f.name not in _NOT_SNAPSHOT}
+        return self.fs.snapshot(), values
+
+    def restore(self, snap: tuple) -> None:
+        fs_snap, values = snap
+        self.fs.restore(fs_snap)
+        for name, value in values.items():
+            setattr(self, name, copy.copy(value))
 
     @property
     def hostname(self) -> str:
@@ -79,6 +93,9 @@ class ShellState:
         if home and home != "/" and (cwd == home or cwd.startswith(home + "/")):
             cwd = "~" + cwd[len(home):]
         return f"{self.user}@{self.hostname}:{cwd}{'#' if self.is_root else '$'} "
+
+
+_NOT_SNAPSHOT = {"fs", "system", "unknown"}
 
 
 class Ctx:
@@ -197,7 +214,7 @@ class _Expander:
 class Engine:
     def __init__(self) -> None:
         # import for the registration side effects
-        from .commands import files, system, text  # noqa: F401
+        from .commands import files, net, pkg, system, text, transfer  # noqa: F401
 
     def new_state(self, user: str = "root", tty: bool = True, base: BaseFS | None = None, **kw) -> ShellState:
         fs = Overlay(base or load_base())
@@ -315,8 +332,8 @@ class Engine:
         fn = REGISTRY.get(name)
         if fn is None:
             if find_in_path(state, name):
-                # installed but not modelled yet; quiet success (llm fallback comes later)
-                return Result()
+                # installed but not modelled: the llm fallback answers, or a quiet success
+                return state.unknown(state, argv, stdin) if state.unknown else Result()
             return Result(err=f"{name}: command not found\n", code=127)
         ctx = Ctx(self, state, name, stdin, depth)
         try:
@@ -337,9 +354,13 @@ class Engine:
             return Result(err=f"-bash: {name}: Permission denied\n", code=126)
         real = state.fs.realpath(path)
         base = posixpath.basename(real)
-        if posixpath.dirname(real) in ("/usr/bin", "/usr/sbin", "/usr/local/bin") and base in REGISTRY:
-            return self.dispatch(state, [base] + argv[1:], stdin, depth)
-        if node.content.startswith(ELF_MAGIC) or not node.content.strip():
+        if posixpath.dirname(real) in ("/usr/bin", "/usr/sbin", "/usr/local/bin"):
+            if base in REGISTRY:
+                return self.dispatch(state, [base] + argv[1:], stdin, depth)
+            if state.unknown:
+                return state.unknown(state, [base] + argv[1:], stdin)
+        # simulated downloads (fake_size set) never run, whatever text they hold
+        if node.content.startswith(ELF_MAGIC) or not node.content.strip() or node.fake_size is not None:
             return Result(err=f"-bash: {name}: cannot execute binary file: Exec format error\n", code=126)
         return run_script(self, state, node.content, depth)
 

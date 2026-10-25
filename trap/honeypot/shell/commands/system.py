@@ -6,7 +6,9 @@ from datetime import datetime, timedelta, timezone
 
 from ...vfs import FsError
 from ..engine import Ctx, Result, command, find_in_path
-from ._util import boot_time, ctime, groups_of, human, load_avg, now, parse_flags, uid_of, uptime_seconds
+from ._util import (
+    boot_time, ctime, groups_of, human, load_avg, now, parse_flags, short_time, stopped_pids, uid_of, uptime_seconds,
+)
 
 def _clock(dt: datetime) -> str:
     return f"{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}"
@@ -44,7 +46,8 @@ def _session_procs(ctx: Ctx, final: str) -> list[list]:
 
 
 def _all_procs(ctx: Ctx, final: str) -> list[list]:
-    procs = [p for p in ctx.system["processes"] if p[1] not in ctx.state.killed]
+    gone = stopped_pids(ctx)
+    procs = [p for p in ctx.system["processes"] if p[1] not in gone]
     return procs + _session_procs(ctx, final)
 
 
@@ -469,6 +472,50 @@ def service(ctx: Ctx, args: list[str]) -> Result:
     if _service(ctx, name) is None:
         return Result(err=f"{name}: unrecognized service\n", code=1)
     return _control(ctx, verb, name)
+
+
+# logins and mounts
+
+@command("last")
+def last(ctx: Ctx, args: list[str]) -> Result:
+    flags, pos = parse_flags(args, with_value="n")
+    st = ctx.state
+    rows = []
+    if st.tty:
+        # exec channels never write wtmp, interactive logins do
+        rows.append([st.user, "pts/0", st.display_ip, short_time(_login_time(ctx)), "still logged in", ""])
+    rows += ctx.system["last"]
+    if pos:
+        rows = [r for r in rows if r[0] in pos or (r[0] == "reboot" and "reboot" in pos)]
+    limit = flags.get("n")
+    if isinstance(limit, str) and limit.isdigit():
+        rows = rows[: int(limit)]
+    lines = []
+    for user, tty, host, start, end, dur in rows:
+        if end in ("still logged in", "still running"):
+            lines.append(f"{user:<8} {tty:<12} {host:<16} {start}   {end}")
+        else:
+            lines.append(f"{user:<8} {tty:<12} {host:<16} {start} - {end}  {dur}")
+    return Result("".join(l + "\n" for l in lines) + f"\nwtmp begins {ctx.system['wtmp_begins']}\n")
+
+
+@command("mount")
+def mount(ctx: Ctx, args: list[str]) -> Result:
+    flags, pos = parse_flags(args, with_value="tTo")
+    if not pos:
+        kinds = flags.get("t")
+        wanted = set(kinds.split(",")) if isinstance(kinds, str) else None
+        rows = [m for m in ctx.system["mounts"] if wanted is None or m[2] in wanted]
+        return Result("".join(f"{dev} on {mp} type {kind} ({opts})\n" for dev, mp, kind, opts in rows))
+    target = pos[-1]
+    if not ctx.state.is_root:
+        return Result(err=f"mount: {target}: must be superuser to use mount.\n", code=32)
+    if len(pos) == 1:
+        return Result(err=f"mount: {target}: can't find in /etc/fstab.\n", code=1)
+    source = pos[0]
+    if not ctx.fs.exists(ctx.path(source)):
+        return Result(err=f"mount: {target}: special device {source} does not exist.\n", code=32)
+    return Result(err=f"mount: {target}: wrong fs type, bad option, bad superblock on {source}, missing codepage or helper program, or other error.\n", code=32)
 
 
 # docker

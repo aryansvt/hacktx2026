@@ -1,5 +1,6 @@
 # local dev: docker compose -f trap/docker-compose.yml up --build
-# ssh -p 2222 root@localhost (password root). events go to a backend on the host.
+# ssh -p 2222 root@localhost (password root), web on http://localhost:8080.
+# events go to a backend on the host.
 services:
   trap:
     build:
@@ -7,8 +8,9 @@ services:
       dockerfile: trap/Dockerfile
     image: hacktx-trap
     ports:
-      # the container really binds 22, same as production
+      # the container really binds 22 and 80, same as production
       - "2222:22"
+      - "8080:80"
     environment:
       CORE_URL: ${CORE_URL:-http://host.docker.internal:8000}
       INGEST_TOKEN: ${INGEST_TOKEN:-dev}
@@ -17,6 +19,8 @@ services:
       TEAM_SSH_USER: ${TEAM_SSH_USER:-}
       TEAM_SSH_PASSWORD: ${TEAM_SSH_PASSWORD:-}
       TEAM_IPS: ${TEAM_IPS:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_HOURLY_CAP: ${LLM_HOURLY_CAP:-200}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

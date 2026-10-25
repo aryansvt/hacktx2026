@@ -8,10 +8,8 @@ import { appearance, eventText, location } from "@/lib/domain";
 import { createMockAdapter } from "@/lib/mock";
 import { backoff, createLiveAdapter, fetchStats, useConn } from "@/lib/live";
 import { useDataMode, type DataMode } from "@/lib/data-mode";
-import type {
-  DataAdapter,
-  SessionResponse,
-} from "@/lib/contracts";
+import { useGuestFollow, useHashMode, useKioskTour } from "@/lib/modes";
+import type { DataAdapter, SessionResponse } from "@/lib/contracts";
 import styles from "./live.module.css";
 import Timeline from "./Timeline";
 import TopBar from "@/components/chrome/TopBar";
@@ -296,6 +294,10 @@ function Inspection({ adapter }: { adapter: DataAdapter | null }) {
 }
 export default function LiveShell() {
   const view = useView();
+  const hashMode = useHashMode();
+  const kiosk = hashMode === "kiosk";
+  useKioskTour(kiosk);
+  useGuestFollow(hashMode === "guest");
   const [adapter, setAdapter] = useState<DataAdapter | null>(null);
   const worldRef = useRef<HTMLDivElement>(null),
     lineRef = useRef<SVGPolylineElement>(null);
@@ -377,15 +379,15 @@ export default function LiveShell() {
           />
         </svg>
       )}
-      <TopBar />
+      {!kiosk && <TopBar />}
       <Heralds />
-      <Chronicle />
+      {!kiosk && <Chronicle />}
       {mode === "live" && conn === "reconnecting" && (
         <p className={styles.pill} role="status">
           Reconnecting to the live feed…
         </p>
       )}
-      {toggle && mode && (
+      {toggle && mode && !kiosk && (
         <div className={styles.mode}>
           <span>
             {mode === "mock"
@@ -405,7 +407,10 @@ export default function LiveShell() {
           </label>
         </div>
       )}
-      <p className={`${styles.hint} ${shifted ? styles.shiftHint : ""}`}>
+      <p
+        className={`${styles.hint} ${shifted ? styles.shiftHint : ""}`}
+        hidden={kiosk}
+      >
         {view.surface === "creature"
           ? "Drag to look around · Esc to close"
           : view.surface === "activity"
@@ -413,7 +418,7 @@ export default function LiveShell() {
             : "Drag to explore · click a creature to inspect"}
       </p>
       {view.surface === "creature" && <Inspection adapter={adapter} />}
-      <Timeline />
+      {!kiosk && <Timeline />}
       <Footer />
     </main>
   );

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useDomain } from "@/lib/store";
 import { useView } from "@/lib/view-store";
 import { createMockAdapter } from "@/lib/mock";
+import { createReplayAdapter } from "@/lib/replay";
 import { backoff, createLiveAdapter, fetchStats, useConn } from "@/lib/live";
 import { useDataMode, type DataMode } from "@/lib/data-mode";
 import { useGuestFollow, useHashMode, useKioskTour } from "@/lib/modes";
@@ -26,6 +27,16 @@ const World = dynamic(() => import("./World"), {
   ssr: false,
   loading: () => null,
 });
+const modeLabel: Record<DataMode, string> = {
+  live: "Live data from the honeypot",
+  replay: "Recorded attacks from HackTX 2026",
+  mock: "Mock data, not real traffic",
+};
+const modeName: Record<DataMode, string> = {
+  live: "Live",
+  replay: "Replay",
+  mock: "Mock",
+};
 export default function LiveShell() {
   const view = useView();
   const hashMode = useHashMode();
@@ -37,12 +48,16 @@ export default function LiveShell() {
   const [adapter, setAdapter] = useState<DataAdapter | null>(null);
   const worldRef = useRef<HTMLDivElement>(null),
     lineRef = useRef<SVGPolylineElement>(null);
-  const { mode, data, choose, toggle } = useDataMode();
+  const { mode, data, choose, toggle, options } = useDataMode();
   const conn = useConn((s) => s.conn);
   useEffect(() => {
     if (!mode) return;
     const current =
-      mode === "mock" ? createMockAdapter(data) : createLiveAdapter();
+      mode === "mock"
+        ? createMockAdapter(data)
+        : mode === "replay"
+          ? createReplayAdapter()
+          : createLiveAdapter();
     let active = true;
     let unsubscribe = () => {};
     let poll: ReturnType<typeof setInterval> | undefined;
@@ -54,7 +69,11 @@ export default function LiveShell() {
           if (!active) return;
           useDomain.getState().hydrate(s);
           setAdapter(current);
-          unsubscribe = current.subscribe(useDomain.getState().ingest);
+          const store = useDomain.getState();
+          unsubscribe = current.subscribe(store.ingest, {
+            stats: store.setStats,
+            reset: store.hydrate,
+          });
           if (current.mode === "live")
             poll = setInterval(() => {
               fetchStats()
@@ -117,11 +136,7 @@ export default function LiveShell() {
       )}
       {toggle && mode && !kiosk && (
         <div className={styles.mode}>
-          <span>
-            {mode === "mock"
-              ? "Mock data, not real traffic"
-              : "Live data from the honeypot"}
-          </span>
+          <span>{modeLabel[mode]}</span>
           <label>
             Data{" "}
             <select
@@ -129,8 +144,11 @@ export default function LiveShell() {
               value={mode}
               onChange={(e) => choose(e.target.value as DataMode)}
             >
-              <option value="live">Live</option>
-              <option value="mock">Mock</option>
+              {options.map((m) => (
+                <option key={m} value={m}>
+                  {modeName[m]}
+                </option>
+              ))}
             </select>
           </label>
         </div>

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import Ajv from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { fixtures, fixtureEvent, createMockAdapter } from "../src/lib/mock";
-import { envMode } from "../src/lib/data-mode";
+import { allowedModes, envMode, pickMode } from "../src/lib/data-mode";
 import { backoff } from "../src/lib/live";
 import { creatureKey } from "../src/lib/domain";
 import {
@@ -94,11 +94,29 @@ test("subview back restores overview and close preserves activity source", () =>
   v.close();
   assert.equal(useView.getState().surface, "activity");
 });
-test("configuration compares the flag explicitly", () => {
-  assert.equal(envMode("0"), "live");
-  assert.equal(envMode("1"), "mock");
-  assert.equal(envMode(undefined), "live");
-  assert.equal(envMode("true"), "live");
+test("NEXT_PUBLIC_MODE picks the mode, then the old mock flag, then replay", () => {
+  assert.equal(envMode("replay"), "replay");
+  assert.equal(envMode("live"), "live");
+  assert.equal(envMode("mock"), "mock");
+  assert.equal(envMode("live", "1"), "live");
+  assert.equal(envMode(undefined, "1"), "mock");
+  assert.equal(envMode("nonsense", "1"), "mock");
+  assert.equal(envMode(undefined, "0"), "replay");
+  assert.equal(envMode(undefined, "true"), "replay");
+  assert.equal(envMode(undefined, undefined), "replay");
+});
+test("live is only offered when the build points at a backend", () => {
+  assert.deepEqual(allowedModes("replay"), ["replay", "mock"]);
+  assert.deepEqual(allowedModes("mock"), ["replay", "mock"]);
+  assert.deepEqual(allowedModes("live"), ["live", "replay", "mock"]);
+});
+test("a remembered choice counts only if this build allows it", () => {
+  // someone who picked live during the event must not hit the dead api
+  assert.equal(pickMode("live", "replay"), "replay");
+  assert.equal(pickMode("mock", "replay"), "mock");
+  assert.equal(pickMode("replay", "live"), "replay");
+  assert.equal(pickMode(null, "live"), "live");
+  assert.equal(pickMode("garbage", "replay"), "replay");
 });
 
 test("reconnect backoff is 1, 2, 4 and caps at 10s", () => {

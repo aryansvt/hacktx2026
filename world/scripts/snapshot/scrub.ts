@@ -41,7 +41,10 @@ const secretKey =
 
 const rules: [RegExp, string | ((...m: string[]) => string)][] = [
   // pem blocks, even when the end marker was cut off
-  [/-----BEGIN ([A-Z0-9 ]+)-----[\s\S]*?(?:-----END \1-----|$)/g, "[redacted key]"],
+  [
+    /-----BEGIN ([A-Z0-9 ]+)-----[\s\S]*?(?:-----END \1-----|$)/g,
+    "[redacted key]",
+  ],
   [
     /\b(ssh-(?:rsa|dss|ed25519)|ecdsa-sha2-nistp\d+|sk-ssh-ed25519@openssh\.com)\s+[A-Za-z0-9+/=]{16,}/g,
     "$1 [redacted key]",
@@ -58,7 +61,10 @@ const rules: [RegExp, string | ((...m: string[]) => string)][] = [
     `$1$2$3${R}`,
   ],
   [/\b(bearer)\s+[\w.~+/=-]{6,}/gi, `$1 ${R}`],
-  [/([?&][^=&\s#'"]*(?:key|token|auth|sig|secret|pass)[^=&\s#'"]*=)[^&\s#'"]+/gi, `$1${R}`],
+  [
+    /([?&][^=&\s#'"]*(?:key|token|auth|sig|secret|pass)[^=&\s#'"]*=)[^&\s#'"]+/gi,
+    `$1${R}`,
+  ],
   // echo "user:pass" | chpasswd
   [/([^\s'":|]+):([^\s'"|]+)(['"]?\s*\|\s*(?:sudo\s+)?chpasswd)/g, `$1:${R}$3`],
   // echo -e "pass\npass" | passwd
@@ -74,7 +80,9 @@ const rules: [RegExp, string | ((...m: string[]) => string)][] = [
   [
     /(?<![/\w.-])([\w.-]+)(["']?\s*[=:]\s*)(["']?)([^\s"'&;,]+)\3/g,
     (all, key, sep, q, value) =>
-      secretKey.test(key) && !value.startsWith("[redacted") && !/^\$\w/.test(value)
+      secretKey.test(key) &&
+      !value.startsWith("[redacted") &&
+      !/^\$\w/.test(value)
         ? `${key}${sep}${q}${R}${q}`
         : all,
   ],
@@ -84,7 +92,10 @@ const rules: [RegExp, string | ((...m: string[]) => string)][] = [
 export function scrubText(s: string, ips: IpMap): string {
   let out = s;
   for (const [re, to] of rules)
-    out = out.replace(re, to as (substring: string, ...args: string[]) => string);
+    out = out.replace(
+      re,
+      to as (substring: string, ...args: string[]) => string,
+    );
   // ipv4, but not pieces of version strings like 1.34.0.1.22
   out = out.replace(
     /(?<![\w.-])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\w-]|\.\d)/g,
@@ -95,8 +106,11 @@ export function scrubText(s: string, ips: IpMap): string {
     /(?<![\w:.])[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}(?![\w:])/gi,
     (ip) => {
       const colons = ip.split(":").length - 1;
-      const v6 = ip.includes("::") ? colons >= 2 && /[0-9a-f]/i.test(ip) : colons >= 4;
-      if (!v6 || /^(::1|fe80:|fc|fd)/i.test(ip) || ip.startsWith("2001:db8")) return ip;
+      const v6 = ip.includes("::")
+        ? colons >= 2 && /[0-9a-f]/i.test(ip)
+        : colons >= 4;
+      if (!v6 || /^(::1|fe80:|fc|fd)/i.test(ip) || ip.startsWith("2001:db8"))
+        return ip;
       return standIn(ips, ip, true);
     },
   );
@@ -114,6 +128,8 @@ export function scrubUrl(url: string): string | null {
   if (u.protocol !== "https:" && u.protocol !== "http:") return null;
   const path = decodeURIComponent(u.pathname);
   const identifying =
-    /\d{1,3}(?:[.-]\d{1,3}){3}|\d{5,}|[0-9a-f]{16,}|[A-Za-z0-9+_]{32,}|:.*:/i.test(path);
+    /\d{1,3}(?:[.-]\d{1,3}){3}|\d{5,}|[0-9a-f]{16,}|[A-Za-z0-9+_]{32,}|:.*:/i.test(
+      path,
+    );
   return identifying ? `${u.origin}/` : `${u.origin}${u.pathname}`;
 }

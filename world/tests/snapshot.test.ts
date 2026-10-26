@@ -59,11 +59,23 @@ test("scrubText maps public ips to documentation ranges, consistently", () => {
   assert.ok(!a.includes("31.56.209.73"));
   assert.match(a, /http:\/\/203\.0\.113\.\d+:32461\/s\/amd64/);
   const b = scrubText("Connecting to 31.56.209.73:32461...", ips);
-  assert.equal(a.match(/203\.0\.113\.\d+/)![0], b.match(/203\.0\.113\.\d+/)![0]);
+  assert.equal(
+    a.match(/203\.0\.113\.\d+/)![0],
+    b.match(/203\.0\.113\.\d+/)![0],
+  );
   const c = scrubText("ping 45.9.1.2", ips);
-  assert.notEqual(c.match(/203\.0\.113\.\d+/)![0], a.match(/203\.0\.113\.\d+/)![0]);
-  assert.equal(scrubText("curl http://127.0.0.1/health", ips), "curl http://127.0.0.1/health");
-  assert.equal(scrubText("uname -a; ls -la /opt/app", ips), "uname -a; ls -la /opt/app");
+  assert.notEqual(
+    c.match(/203\.0\.113\.\d+/)![0],
+    a.match(/203\.0\.113\.\d+/)![0],
+  );
+  assert.equal(
+    scrubText("curl http://127.0.0.1/health", ips),
+    "curl http://127.0.0.1/health",
+  );
+  assert.equal(
+    scrubText("uname -a; ls -la /opt/app", ips),
+    "uname -a; ls -la /opt/app",
+  );
 });
 
 test("scrubUrl keeps plain paths and cuts identifying ones to the origin", () => {
@@ -130,7 +142,10 @@ function session(
       detail,
     }) as AttackEvent;
   const events: AttackEvent[] = [
-    ev("session_start", opts.source === "guest" ? { guest_name: "Ada Lovelace" } : {}),
+    ev(
+      "session_start",
+      opts.source === "guest" ? { guest_name: "Ada Lovelace" } : {},
+    ),
     ev("login_success", { username: "root" }),
   ];
   for (let i = 0; i < (opts.commands ?? 1); i++)
@@ -148,7 +163,12 @@ function session(
   events.push(
     ev("dossier", {
       summary: "seen at 31.56.209.73 before",
-      sources: [{ title: "Is 31.56.209.73 bad?", url: "https://ismalicious.com/ip/31.56.209.73" }],
+      sources: [
+        {
+          title: "Is 31.56.209.73 bad?",
+          url: "https://ismalicious.com/ip/31.56.209.73",
+        },
+      ],
     }),
   );
   events.push(ev("story", { story: "A golem came from 31.56.209.73." }));
@@ -181,21 +201,33 @@ test("selectSessions keeps ended sessions, dragons, guests and every country", (
     session({ threat: "critical", country: "DE", ended: false }),
   ];
   const picked = selectSessions(pool, 120);
-  assert.ok(picked.every((s) => s.events.some((e) => e.type === "session_end")));
+  assert.ok(
+    picked.every((s) => s.events.some((e) => e.type === "session_end")),
+  );
   for (const c of ["CA", "US", "JP", "BG", "NL"])
-    assert.ok(picked.some((s) => s.session.geo.country === c), c);
+    assert.ok(
+      picked.some((s) => s.session.geo.country === c),
+      c,
+    );
   assert.ok(picked.some((s) => s.session.attacker.threat === "critical"));
   assert.ok(picked.some((s) => s.session.source === "guest"));
   assert.ok(size(picked) <= 120 + 7, `picked ${size(picked)} events`);
   // a noisy attacker is capped
-  const noisy = picked.filter((s) => s.session.attacker.ip_hash!.startsWith("aaa"));
+  const noisy = picked.filter((s) =>
+    s.session.attacker.ip_hash!.startsWith("aaa"),
+  );
   assert.ok(noisy.length <= 3, `noisy kept ${noisy.length}`);
 });
 
 test("selectSessions mixes creature types among team runs", () => {
   const pool = [
     ...Array.from({ length: 12 }, () =>
-      session({ source: "team", kind: "agent", threat: "critical", country: "US" }),
+      session({
+        source: "team",
+        kind: "agent",
+        threat: "critical",
+        country: "US",
+      }),
     ),
     ...Array.from({ length: 3 }, () =>
       session({ source: "team", kind: "agent", threat: "med", country: "US" }),
@@ -212,7 +244,12 @@ test("anonymize re-keys ids, rounds geo, scrubs text and drops guest names", () 
   const s2 = session({ threat: "critical" });
   const dump: RawDump = {
     fetched_at: "2026-10-26T07:05:00.000Z",
-    stats: { ...emptyStats, total_sessions: 4792, countries: 20, breaches: 227 },
+    stats: {
+      ...emptyStats,
+      total_sessions: 4792,
+      countries: 20,
+      breaches: 227,
+    },
     attackers: [
       {
         ip_hash: s2.session.attacker.ip_hash!,

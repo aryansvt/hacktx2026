@@ -52,9 +52,16 @@ export function buildSchedule(
       const t = list.map((e) => Date.parse(e.timestamp));
       const rel = [0];
       for (let i = 1; i < list.length; i++)
-        rel.push(rel[i - 1] + Math.min(Math.max(0, t[i] - t[i - 1]), MAX_INSIDE));
+        rel.push(
+          rel[i - 1] + Math.min(Math.max(0, t[i] - t[i - 1]), MAX_INSIDE),
+        );
       const ended = list.findIndex((e) => e.type === "session_end");
-      return { list, start: t[0], rel, end: ended >= 0 ? rel[ended] : rel.at(-1)! };
+      return {
+        list,
+        start: t[0],
+        rel,
+        end: ended >= 0 ? rel[ended] : rel.at(-1)!,
+      };
     })
     .sort((a, b) => a.start - b.start);
   if (!visits.length) return { lapMs: TAIL_MS, items: [], sessions: {} };
@@ -82,7 +89,9 @@ export function buildSchedule(
   const items: Schedule["items"] = [];
   const sessions: Schedule["sessions"] = {};
   visits.forEach((v, i) => {
-    v.list.forEach((event, j) => items.push({ at: Math.round(at[i] + v.rel[j]), event }));
+    v.list.forEach((event, j) =>
+      items.push({ at: Math.round(at[i] + v.rel[j]), event }),
+    );
     sessions[v.list[0].session_id] = {
       start: Math.round(at[i]),
       end: Math.round(at[i] + v.end),
@@ -230,7 +239,8 @@ export function createReplayAdapter(
       active = now.active_now;
       control.stats?.(now);
     }
-    const next = cursor < sched.items.length ? sched.items[cursor].at : sched.lapMs;
+    const next =
+      cursor < sched.items.length ? sched.items[cursor].at : sched.lapMs;
     timer = setTimeout(tick, Math.min(1000, Math.max(16, next - p)));
   };
 

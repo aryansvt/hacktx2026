@@ -32,7 +32,9 @@ export function score(s: SessionResponse): number {
   if (s.session.source === "team") n += 25;
   if (has("dossier")) n += 15;
   if (has("tripwire")) n += 15;
-  if (commands.some((e) => e.type === "command" && e.detail.answered_by === "llm"))
+  if (
+    commands.some((e) => e.type === "command" && e.detail.answered_by === "llm")
+  )
     n += 10;
   if (has("login_success")) n += 8;
   return n + Math.min(commands.length, 10);

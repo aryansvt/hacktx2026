@@ -10,11 +10,12 @@ import type {
 } from "./contracts";
 import { emptyStats, parseTransport } from "./domain";
 
+// live mode only. defaults match the local stack in docker-compose.yml
 export const API_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "https://api.followthebreadcrumbs.tech"
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 ).replace(/\/$/, "");
 export const WS_URL =
-  process.env.NEXT_PUBLIC_WS_URL ?? "wss://api.followthebreadcrumbs.tech/live";
+  process.env.NEXT_PUBLIC_WS_URL ?? "ws://localhost:8000/live";
 
 export type Conn = "connecting" | "live" | "reconnecting" | "offline";
 export const useConn = create<{ conn: Conn; set: (c: Conn) => void }>(

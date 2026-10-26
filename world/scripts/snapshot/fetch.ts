@@ -49,10 +49,14 @@ async function main() {
   const attackers: AttackerSummary[] = [];
   const ids = new Set<string>();
   for (const s of sources) {
-    const rows = await get<AttackerSummary[]>(`/attackers?limit=500&source=${s}`);
+    const rows = await get<AttackerSummary[]>(
+      `/attackers?limit=500&source=${s}`,
+    );
     attackers.push(...rows);
     for (const a of rows) for (const id of a.session_ids) ids.add(id);
-    const recent = await get<SessionSummary[]>(`/sessions?limit=200&source=${s}`);
+    const recent = await get<SessionSummary[]>(
+      `/sessions?limit=200&source=${s}`,
+    );
     for (const r of recent) ids.add(r.session_id);
   }
   console.log(`${attackers.length} attackers, ${ids.size} sessions to fetch`);

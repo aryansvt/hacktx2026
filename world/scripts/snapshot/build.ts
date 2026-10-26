@@ -44,6 +44,10 @@ console.log(
   `${snap.events.length} events, ${picked.length} sessions, ${creatures.size} creatures, ` +
     `${new Set(snap.events.map((e) => e.geo.country)).size} countries`,
 );
-console.log(`dossiers ${count("dossier")}, stories ${count("story")}, tripwires ${count("tripwire")}, commands ${count("command")}`);
+console.log(
+  `dossiers ${count("dossier")}, stories ${count("story")}, tripwires ${count("tripwire")}, commands ${count("command")}`,
+);
 console.log(tally);
-console.log(`wrote ${out} (${(JSON.stringify(snap).length / 1024).toFixed(0)} KB)`);
+console.log(
+  `wrote ${out} (${(JSON.stringify(snap).length / 1024).toFixed(0)} KB)`,
+);

@@ -17,7 +17,10 @@ export interface RawDump {
   sessions: SessionResponse[];
 }
 
-const hex = (n: number) => randomBytes(Math.ceil(n / 2)).toString("hex").slice(0, n);
+const hex = (n: number) =>
+  randomBytes(Math.ceil(n / 2))
+    .toString("hex")
+    .slice(0, n);
 // lap 0 ids end in 0000; the replay rewrites that tail per lap
 const eventId = () => randomUUID().slice(0, 32) + "0000";
 const sessionId = () => hex(28) + "0000";
@@ -97,7 +100,11 @@ export function anonymize(
           },
         };
       case "classified":
-        return { ...base, type: e.type, detail: { reasons: e.detail.reasons.map(text) } };
+        return {
+          ...base,
+          type: e.type,
+          detail: { reasons: e.detail.reasons.map(text) },
+        };
       case "dossier": {
         const seen = new Set<string>();
         const sources = [];
@@ -115,7 +122,11 @@ export function anonymize(
         };
       }
       case "story":
-        return { ...base, type: e.type, detail: { story: text(e.detail.story) } };
+        return {
+          ...base,
+          type: e.type,
+          detail: { story: text(e.detail.story) },
+        };
       case "session_end":
         return {
           ...base,

@@ -1,0 +1,6 @@
+node_modules
+.next
+.replay-raw
+.env*
+!.env.example
+*.tsbuildinfo

@@ -1,0 +1,150 @@
+# the whole thing on your own machine: trap + core + world.
+#
+#   docker compose up --build
+#   ssh -p 2222 -o UserKnownHostsFile=/dev/null root@localhost   # password: root
+#   open http://localhost:3000
+#
+# WARNING: every port below binds to 127.0.0.1 on purpose. this setup is for
+# trying the honeypot yourself, not for catching real attackers. do not change
+# the bindings to 0.0.0.0 or forward these ports. a honeypot open to the internet
+# needs the two-server split, the firewall and the trap's egress lock in infra/
+# (see infra/README.md), or an attacker who finds a bug gets a foothold on your box.
+#
+# keys are optional. without ANTHROPIC_API_KEY (or GEMINI_API_KEY) the trap answers
+# with the rules engine only and brain writes template stories. without SERPAPI_KEY
+# there are no reputation lookups, so no dossiers or oracle. put them in .env.
+name: breadcrumbs-local
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # tiger data in production; plain timescale here
+  db:
+    image: timescale/timescaledb:2.17.2-pg16
+    environment:
+      POSTGRES_USER: breadcrumbs
+      POSTGRES_PASSWORD: breadcrumbs-local
+      POSTGRES_DB: breadcrumbs
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks: [back]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U breadcrumbs -d breadcrumbs"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  redis:
+    image: redis:7.4-alpine
+    networks: [back]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      INGEST_TOKEN: ${INGEST_TOKEN:-local-ingest-token}
+      REDIS_URL: redis://redis:6379/0
+      TIGER_DATABASE_URL: postgresql://breadcrumbs:breadcrumbs-local@db:5432/breadcrumbs
+      # cors already allows http://localhost:3000
+      DOMAIN: localhost
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks: [back, front]
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  brain:
+    build:
+      context: .
+      dockerfile: brain/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      TIGER_DATABASE_URL: postgresql://breadcrumbs:breadcrumbs-local@db:5432/breadcrumbs
+      IP_HASH_SALT: ${IP_HASH_SALT:-local-only-salt-change-me}
+      LLM_PROVIDER: ${LLM_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      SERPAPI_KEY: ${SERPAPI_KEY:-}
+      LLM_HOURLY_CAP: ${LLM_HOURLY_CAP:-50}
+      SERPAPI_HOURLY_CAP: ${SERPAPI_HOURLY_CAP:-10}
+    # front only for its own way out to the llm api and serpapi
+    networks: [back, front]
+    depends_on:
+      redis:
+        condition: service_healthy
+    logging: *logging
+
+  trap:
+    build:
+      context: .
+      dockerfile: trap/Dockerfile
+    ports:
+      - "127.0.0.1:2222:22"
+      - "127.0.0.1:8080:80"
+    environment:
+      CORE_URL: http://backend:8000
+      INGEST_TOKEN: ${INGEST_TOKEN:-local-ingest-token}
+      GUEST_SSH_USER: ${GUEST_SSH_USER:-guest}
+      GUEST_SSH_PASSWORD: ${GUEST_SSH_PASSWORD:-guest}
+      TEAM_SSH_USER: ${TEAM_SSH_USER:-team}
+      TEAM_SSH_PASSWORD: ${TEAM_SSH_PASSWORD:-team}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      LLM_HOURLY_CAP: ${LLM_HOURLY_CAP:-50}
+    networks: [front]
+    volumes:
+      - trap-state:/state
+    # same lockdown as production: no capabilities, read-only root, small limits
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: 0
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 256
+    mem_limit: 512m
+    depends_on:
+      - backend
+    logging: *logging
+
+  world:
+    build:
+      context: world
+      args:
+        NEXT_PUBLIC_MODE: ${WORLD_MODE:-live}
+        # the browser calls these, so they are host addresses, not service names
+        NEXT_PUBLIC_API_URL: http://localhost:8000
+        NEXT_PUBLIC_WS_URL: ws://localhost:8000/live
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks: [front]
+    logging: *logging
+
+networks:
+  # db, redis and the services that use them. no route out
+  back:
+    internal: true
+  # published ports, and brain's and trap's way out to the llm api
+  front:
+
+volumes:
+  db-data:
+  trap-state:

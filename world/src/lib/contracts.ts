@@ -92,10 +92,20 @@ export interface Snapshot {
   stats: Stats;
   events: AttackEvent[];
 }
+// optional hooks an adapter can use beyond the event stream
+export interface AdapterControl {
+  // fresh counters, e.g. active visitors in a replay
+  stats?(s: Stats): void;
+  // swap the whole state, e.g. when a replay loops
+  reset?(s: Snapshot): void;
+}
 export interface DataAdapter {
-  mode: "mock" | "live";
+  mode: "mock" | "live" | "replay";
   snapshot(): Promise<Snapshot>;
   session(id: string): Promise<SessionResponse>;
-  subscribe(onEvent: (event: AttackEvent) => void): () => void;
+  subscribe(
+    onEvent: (event: AttackEvent) => void,
+    control?: AdapterControl,
+  ): () => void;
   close(): void;
 }

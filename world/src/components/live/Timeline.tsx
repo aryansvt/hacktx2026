@@ -6,9 +6,11 @@ import styles from "./live.module.css";
 export default function Timeline({
   castleOpen,
   onCastle,
+  badge = "LIVE",
 }: {
   castleOpen: boolean;
   onCastle: () => void;
+  badge?: string;
 }) {
   const data = useDomain((s) => s.data);
   const chart = useRef<HTMLDivElement>(null);
@@ -64,7 +66,7 @@ export default function Timeline({
       aria-label="Timeline, attacks over 24 hours"
     >
       <strong>Timeline</strong>
-      <span className={styles.live}>LIVE</span>
+      <span className={styles.live}>{badge}</span>
       <div ref={chart} className={styles.chart}>
         <div className={styles.bars}>
           {counts.map((c, i) => (

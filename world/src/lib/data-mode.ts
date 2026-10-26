@@ -30,6 +30,10 @@ export const allowedModes = (env: DataMode): DataMode[] =>
 export const pickMode = (stored: string | null, env: DataMode): DataMode =>
   isMode(stored) && allowedModes(env).includes(stored) ? stored : env;
 
+// before mount the build's mode stands in, so a replay build never flashes LIVE
+export const timelineBadge = (mode: DataMode | null, env: DataMode) =>
+  (mode ?? env) === "replay" ? "REPLAY" : "LIVE";
+
 function stored(): string | null {
   try {
     return localStorage.getItem(KEY);
@@ -67,5 +71,5 @@ export function useDataMode() {
     } catch {}
     setMode(m);
   };
-  return { mode, data, choose, toggle, options: allowedModes(env) };
+  return { mode, env, data, choose, toggle, options: allowedModes(env) };
 }

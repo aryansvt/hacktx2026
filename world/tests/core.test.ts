@@ -4,7 +4,12 @@ import { readFileSync } from "node:fs";
 import Ajv from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { fixtures, fixtureEvent, createMockAdapter } from "../src/lib/mock";
-import { allowedModes, envMode, pickMode } from "../src/lib/data-mode";
+import {
+  allowedModes,
+  envMode,
+  pickMode,
+  timelineBadge,
+} from "../src/lib/data-mode";
 import { backoff } from "../src/lib/live";
 import { creatureKey } from "../src/lib/domain";
 import {
@@ -109,6 +114,15 @@ test("live is only offered when the build points at a backend", () => {
   assert.deepEqual(allowedModes("replay"), ["replay", "mock"]);
   assert.deepEqual(allowedModes("mock"), ["replay", "mock"]);
   assert.deepEqual(allowedModes("live"), ["live", "replay", "mock"]);
+});
+test("the timeline badge says REPLAY only in replay mode", () => {
+  assert.equal(timelineBadge("replay", "replay"), "REPLAY");
+  // before mount the build's mode decides, so the first paint is already right
+  assert.equal(timelineBadge(null, "replay"), "REPLAY");
+  assert.equal(timelineBadge("mock", "replay"), "LIVE");
+  assert.equal(timelineBadge("live", "live"), "LIVE");
+  assert.equal(timelineBadge(null, "live"), "LIVE");
+  assert.equal(timelineBadge("replay", "live"), "REPLAY");
 });
 test("a remembered choice counts only if this build allows it", () => {
   // someone who picked live during the event must not hit the dead api

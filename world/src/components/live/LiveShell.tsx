@@ -6,7 +6,7 @@ import { useView } from "@/lib/view-store";
 import { createMockAdapter } from "@/lib/mock";
 import { createReplayAdapter } from "@/lib/replay";
 import { backoff, createLiveAdapter, fetchStats, useConn } from "@/lib/live";
-import { useDataMode, type DataMode } from "@/lib/data-mode";
+import { timelineBadge, useDataMode, type DataMode } from "@/lib/data-mode";
 import { useGuestFollow, useHashMode, useKioskTour } from "@/lib/modes";
 import type { DataAdapter } from "@/lib/contracts";
 import styles from "./live.module.css";
@@ -49,7 +49,7 @@ export default function LiveShell() {
   const [adapter, setAdapter] = useState<DataAdapter | null>(null);
   const worldRef = useRef<HTMLDivElement>(null),
     lineRef = useRef<SVGPolylineElement>(null);
-  const { mode, data, choose, toggle, options } = useDataMode();
+  const { mode, env, data, choose, toggle, options } = useDataMode();
   const conn = useConn((s) => s.conn);
   useEffect(() => {
     if (!mode) return;
@@ -175,7 +175,11 @@ export default function LiveShell() {
         <DevDataToggle current={data} />
       )}
       {!kiosk && (
-        <Timeline castleOpen={castle} onCastle={() => setCastle((v) => !v)} />
+        <Timeline
+          castleOpen={castle}
+          onCastle={() => setCastle((v) => !v)}
+          badge={timelineBadge(mode, env)}
+        />
       )}
       {!kiosk && <Undercroft open={castle} onClose={closeCastle} />}
       <Footer />

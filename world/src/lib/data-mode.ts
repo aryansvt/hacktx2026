@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { create } from "zustand";
 
 export type DataMode = "live" | "mock" | "replay";
 export type MockData = "demo" | "worst" | "empty";
@@ -30,11 +29,6 @@ export const allowedModes = (env: DataMode): DataMode[] =>
 
 export const pickMode = (stored: string | null, env: DataMode): DataMode =>
   isMode(stored) && allowedModes(env).includes(stored) ? stored : env;
-
-// the mode in use, for copy that changes with it
-export const useMode = create<{ mode: DataMode | null }>(() => ({
-  mode: null,
-}));
 
 function stored(): string | null {
   try {
@@ -67,9 +61,6 @@ export function useDataMode() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [env]);
-  useEffect(() => {
-    useMode.setState({ mode });
-  }, [mode]);
   const choose = (m: DataMode) => {
     try {
       localStorage.setItem(KEY, m);

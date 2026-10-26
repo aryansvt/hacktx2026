@@ -1,4 +1,7 @@
-# Breadcrumbs
+
+<img width="1920" height="569" alt="header" src="https://github.com/user-attachments/assets/c4e3bdbb-899b-4fc7-8e9c-497643cd5e53" />
+
+---
 
 **Every attacker leaves a trail.** An AI-powered SSH honeypot that shows real attacks as fantasy creatures walking across a 3D globe toward a castle. Built in a weekend at HackTX 2026, where it won the **Vultr track**.
 
@@ -200,5 +203,12 @@ cd brain && python -m pytest
 ```
 
 ## Team
+
+### Wizards of Claude
+
+- [Aryan A.](https://www.linkedin.com/in/aryanachar/)
+- [Keziah M.](www.linkedin.com/in/kezmuynz)
+- [Julian P.](https://www.linkedin.com/in/julian-pineros28/)
+- [Kyan O.](https://www.linkedin.com/in/kyan-andrew-ocampo-114360303/)
 
 Built at HackTX 2026. See `CLAUDE.md` for the rules every service follows and `contracts/README.md` for the data shapes.

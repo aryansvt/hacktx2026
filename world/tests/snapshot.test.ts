@@ -320,3 +320,33 @@ test("anonymize gives each table visit its own creature", () => {
   for (const s of [a, b, c]) assert.equal(snap.visits[keyOf(s)], 1);
   assert.equal(snap.visits[keyOf(w1)], 2);
 });
+
+test("scrubText masks partial ip prefixes but leaves version numbers", () => {
+  const ips = newIpMap();
+  for (const [input, prefix] of [
+    ["List of IP Addresses: 45.9.17.* (x.x.x.x - x.x.x.x)", "45.9.17"],
+    ["IP 位址列表: 45.9.4.* (x.x.x.x - x.x.x.x)", "45.9.4"],
+    ["neighboring addresses in DigitalOcean's 45.9.x.x space", "45.9"],
+    ["listings for the surrounding 45.9.17 block with no abuse", "45.9.17"],
+  ]) {
+    const out = scrubText(input, ips);
+    assert.ok(!out.includes(prefix), `${prefix} leaked in: ${out}`);
+  }
+  for (const keep of [
+    'PRETTY_NAME="Ubuntu 22.04.4 LTS"',
+    "Linux qf-web-01 5.15.0-105-generic",
+    "flask==3.0.3\ngunicorn==22.0.0\nboto3==1.35.10",
+    "curl/7.74.0",
+    "Chrome/90.0.4430.85 Safari/537.36 Edg/90.0.818.46",
+  ])
+    assert.equal(scrubText(keep, ips), keep);
+});
+
+test("scrubUrl cuts lookup urls that carry part of an ip", () => {
+  for (const url of [
+    "https://ipleak.com/ip-pool-lookup/45.9.110",
+    "https://en.ipshu.com/ip_d_list/45.9.44",
+    "https://en.ipshu.com/ip_info/EN/45/9.htm",
+  ])
+    assert.equal(scrubUrl(url), `${new URL(url).origin}/`);
+});

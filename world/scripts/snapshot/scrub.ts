@@ -101,6 +101,26 @@ export function scrubText(s: string, ips: IpMap): string {
     /(?<![\w.-])(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?![\w-]|\.\d)/g,
     (ip) => (keepV4(ip) ? ip : standIn(ips, ip, false)),
   );
+  // partial prefixes from ip lookup sites: 45.9.17.*, 45.9.x.x
+  out = out.replace(
+    /(?<![\w.])(?:(?:\d{1,3}|\*|x)\.){2,3}(?:\d{1,3}|\*|x)(?!\w|\.(?:\d|\*|x\b))/gi,
+    (m) => {
+      const parts = m.split(".");
+      const nums = parts.filter((p) => /^\d+$/.test(p));
+      if (!nums.length || nums.length === parts.length) return m;
+      if (nums.some((p) => +p > 255)) return m;
+      return parts.map((p) => (/^\d+$/.test(p) ? "x" : p)).join(".");
+    },
+  );
+  // a bare /24 in prose ("the 45.9.17 block"). versions start low, have
+  // leading zeros, or sit after = or /, so they stay
+  out = out.replace(
+    /(?<![\w.=/-])(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?![\w-]|\.\w)/g,
+    (m, a: string, b: string, c: string) =>
+      +a >= 32 && [a, b, c].every((p) => +p <= 255 && !/^0\d/.test(p))
+        ? "x.x.x"
+        : m,
+  );
   // ipv6 with :: or at least four colons; times like 19:32:17 don't qualify
   out = out.replace(
     /(?<![\w:.])[0-9a-f]{0,4}(?::[0-9a-f]{0,4}){2,7}(?![\w:])/gi,
@@ -128,7 +148,8 @@ export function scrubUrl(url: string): string | null {
   if (u.protocol !== "https:" && u.protocol !== "http:") return null;
   const path = decodeURIComponent(u.pathname);
   const identifying =
-    /\d{1,3}(?:[.-]\d{1,3}){3}|\d{5,}|[0-9a-f]{16,}|[A-Za-z0-9+_]{32,}|:.*:/i.test(
+    // whole or partial ips, also split by slashes (/ip_info/EN/45/9.htm)
+    /(?<!\d)\d{1,3}(?:[./_-]\d{1,3}){1,3}(?!\d)|\d{5,}|[0-9a-f]{16,}|[A-Za-z0-9+_]{32,}|:.*:/i.test(
       path,
     );
   return identifying ? `${u.origin}/` : `${u.origin}${u.pathname}`;

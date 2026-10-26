@@ -130,12 +130,12 @@ One creature represents one attacker.ip_hash, with session histories underneath.
 | WS /live | Live JSON events; ignore type=ping keepalives with no session_id. |
 | GET /sessions/{id} | Object containing session summary and ordered events for inspection/replay. |
 
-Read base URLs from NEXT_PUBLIC_API_URL and NEXT_PUBLIC_WS_URL. The supplied spec lists https://api.followthebreadcrumbs.tech and wss://api.followthebreadcrumbs.tech/live; availability was not reverified for this documentation revision. Reconnect with 1,2,4 seconds, capped at 10. Reconcile snapshots and deduplicate by event_id; reconnect may require a history refresh because no resumable cursor contract is specified.
+Read base URLs from NEXT_PUBLIC_API_URL and NEXT_PUBLIC_WS_URL. The supplied spec lists https://api.<domain> and wss://api.<domain>/live; availability was not reverified for this documentation revision. Reconnect with 1,2,4 seconds, capped at 10. Reconcile snapshots and deduplicate by event_id; reconnect may require a history refresh because no resumable cursor contract is specified.
 
 ## 7. Backend handoff and deployment
 The backend is maintained by another teammate. Read CLAUDE.md, contracts/, and any applicable repository instructions in the actual application repository before implementing types. The current workspace has no Git checkout or contracts to pull. In the real checkout, inspect branch and working-tree state, then integrate origin/main safely; do not run a blind pull that could overwrite work or invent a remote. Exact contracts take precedence over illustrative examples here. Report actual mismatches instead of changing backend field names.
 
-Live configuration: NEXT_PUBLIC_API_URL=https://api.followthebreadcrumbs.tech; NEXT_PUBLIC_WS_URL=wss://api.followthebreadcrumbs.tech/live; NEXT_PUBLIC_MOCK=0. Parse the mock flag explicitly (the string 0 must not enable it). Default to live; keep a clearly labeled Mock/Live toggle for sparse real traffic and demos. Changing mode resets or isolates buffers, histories and counters and closes the old adapter.
+Live configuration: NEXT_PUBLIC_API_URL=https://api.<domain>; NEXT_PUBLIC_WS_URL=wss://api.<domain>/live; NEXT_PUBLIC_MOCK=0. Parse the mock flag explicitly (the string 0 must not enable it). Default to live; keep a clearly labeled Mock/Live toggle for sparse real traffic and demos. Changing mode resets or isolates buffers, histories and counters and closes the old adapter.
 
 Handle WebSocket {"type":"ping"} every 20 seconds immediately after parsing JSON, before attack-event validation, reducer calls, counters or creature creation. It has no session_id, geo or attacker. GET /sessions/{id} returns {"session": {...}, "events": [...]}; hydrate the summary from session and replay from events. Never treat the whole object as an event array. Add regression coverage for both shapes.
 

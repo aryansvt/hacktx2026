@@ -100,7 +100,7 @@ Keep this root session open. In a NEW terminal on your PC run:
 
   ssh -p $ADMIN_PORT -o PreferredAuthentications=publickey $ADMIN_USER@${ip:-<server-ip>} "sudo -n true && echo admin-ok"
 
-It should print admin-ok. If it hangs, a Vultr firewall group is
+It should print admin-ok. If it hangs, a cloud firewall is
 probably blocking TCP $ADMIN_PORT. Nothing on port 22 has changed yet.
 ------------------------------------------------------------------
 EOF
@@ -224,7 +224,7 @@ NEW terminal on your PC:
 
   ssh -p $ADMIN_PORT $ADMIN_USER@$(public_ip)
 
-From now on that is the only way in (or the Vultr web console).
+From now on that is the only way in (or your provider's web console).
 ------------------------------------------------------------------
 EOF
 }

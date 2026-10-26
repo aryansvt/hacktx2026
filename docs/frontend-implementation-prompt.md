@@ -66,7 +66,7 @@ Design interpretation
 
 Data and state boundaries
 - Define types from the documented event, session, attacker and stats contracts; retain their field names.
-- Record the later integration configuration: NEXT_PUBLIC_API_URL=https://api.followthebreadcrumbs.tech and NEXT_PUBLIC_WS_URL=wss://api.followthebreadcrumbs.tech/live. Use NEXT_PUBLIC_MOCK=1 during M0-M4. In M5 connect the real backend and switch the default to NEXT_PUBLIC_MOCK=0 (compare explicitly; the string 0 is truthy in JavaScript). Supply .env.example with these public values and phase-specific usage instructions.
+- Record the later integration configuration: NEXT_PUBLIC_API_URL=https://api.<domain> and NEXT_PUBLIC_WS_URL=wss://api.<domain>/live. Use NEXT_PUBLIC_MOCK=1 during M0-M4. In M5 connect the real backend and switch the default to NEXT_PUBLIC_MOCK=0 (compare explicitly; the string 0 is truthy in JavaScript). Supply .env.example with these public values and phase-specific usage instructions.
 - Build a deterministic mock adapter and a clearly labeled data-mode control using the same types, including repeat visits, overlapping sessions, all kinds, an elite and a dragon. Mock is the active development mode through M4; keep Live unavailable until M5 implements it. After integration, isolate/reset mode-specific state and close the previous adapter when switching.
 - Immediately after WebSocket JSON parsing, return when message.type === "ping". It arrives every 20 seconds with no session_id, geo or attacker. Never pass it to the attack reducer or create a creature/counter entry for it.
 - GET /sessions/{id} returns {"session": {...}, "events": [...]}. Use response.session for session metadata and response.events for replay; never treat the response object as a plain event array.
@@ -153,7 +153,7 @@ Frontend milestones M0-M4 are complete and verified. Now connect the developed B
 
 Implement /attackers?limit=100, /sessions?limit=50, /stats and /sessions/{id}, plus /live WebSocket using NEXT_PUBLIC_API_URL and NEXT_PUBLIC_WS_URL. Validate incoming data, ignore ping, deduplicate event_id, buffer events during hydration, reconcile reconnect snapshots, and retain latest classified attacker kind and aggregate maximum threat. Multiple active visits must remain one creature. Stats count wild only.
 
-Verify ping is discarded before attack validation and replay unwraps {session, events}. Use https://api.followthebreadcrumbs.tech and wss://api.followthebreadcrumbs.tech/live with mock off by default. Check sparse/short sessions, initial snapshots, browser CORS and mode switching without assuming that every session contains commands.
+Verify ping is discarded before attack validation and replay unwraps {session, events}. Use https://api.<domain> and wss://api.<domain>/live with mock off by default. Check sparse/short sessions, initial snapshots, browser CORS and mode switching without assuming that every session contains commands.
 
 Retain explicit mock mode with the same interfaces and separate source tags. Do not silently substitute mock data on a failed live connection. Implement honest disconnected, empty and per-panel error/retry states. Keep sensitive values out of the browser and redact internal hashes/coordinates from displayed diagnostics.
 
@@ -191,7 +191,7 @@ After the first build, give targeted corrections with a frame, element and expec
 ## Deployment handoff prompt - use when ready to deploy
 
 ```text
-Prepare the completed Breadcrumbs frontend for Vercel. Inspect the actual app directory and set Root Directory to that folder (world or frontend). Configure NEXT_PUBLIC_API_URL=https://api.followthebreadcrumbs.tech and NEXT_PUBLIC_WS_URL=wss://api.followthebreadcrumbs.tech/live. Keep mock mode off for production and preserve the explicit testing/demo toggle.
+Prepare the completed Breadcrumbs frontend for Vercel. Inspect the actual app directory and set Root Directory to that folder (world or frontend). Configure NEXT_PUBLIC_API_URL=https://api.<domain> and NEXT_PUBLIC_WS_URL=wss://api.<domain>/live. Keep mock mode off for production and preserve the explicit testing/demo toggle.
 
 Run the production build and verify the live integration, ping guard, wrapped replay response, required disclosure footer and branding. Report any unresolved failures before claiming readiness. When deployment is authorized, deploy and add followthebreadcrumbs.tech under Domains. Return the exact DNS record Vercel shows so I can pass it to the teammate who manages DNS. Do not invent DNS values or contact the teammate on my behalf. If deployment access is unavailable, complete local preparation and give me the precise remaining dashboard steps.
 ```

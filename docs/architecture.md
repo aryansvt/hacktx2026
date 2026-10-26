@@ -98,7 +98,7 @@ Preserve the envelope and detail fields documented in the companion frontend spe
 
 Store events with unique event IDs and timestamps, sessions with start/end and source, and attacker aggregates with visit membership, most recent classified kind and maximum threat. Index session event lookup and recent activity. Aggregate wild-only stats by time and classification. Database schema and migration syntax are implementation work; no current schema was available to verify.
 
-Production bases recorded in the source: https://api.followthebreadcrumbs.tech and wss://api.followthebreadcrumbs.tech/live, configured by NEXT_PUBLIC_API_URL / NEXT_PUBLIC_WS_URL. Verify CORS and actual deployment settings during implementation; documentation alone is not evidence they remain configured.
+Production bases recorded in the source: https://api.<domain> and wss://api.<domain>/live, configured by NEXT_PUBLIC_API_URL / NEXT_PUBLIC_WS_URL. Verify CORS and actual deployment settings during implementation; documentation alone is not evidence they remain configured.
 
 Backend-owner handoff confirms the same URLs and reports CORS support for localhost:3000, *.vercel.app and followthebreadcrumbs.tech. Default the app to live with NEXT_PUBLIC_MOCK=0; compare that string explicitly. Preserve a labeled Mock/Live toggle and isolate adapters/state on mode changes. Backend code belongs to the teammate; use the actual repository's CLAUDE.md and contracts/ as integration references. Safely integrate origin/main in the real Git checkout after inspecting local changes. This documentation workspace has no Git checkout to update.
 

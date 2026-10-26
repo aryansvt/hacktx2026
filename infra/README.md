@@ -1,6 +1,6 @@
 # infra
 
-Deployment for the two Vultr servers (Ubuntu 24.04).
+How we deployed the exposed honeypot during HackTX 2026: two Ubuntu 24.04 servers, one for the trap and one for core. That deployment has ended. Read this all the way through before you put your own trap on the internet; the firewall and the egress lock below are not optional.
 
 ```
 infra/
@@ -35,7 +35,7 @@ Core first, so trap has somewhere to send events.
 ### 0. Before you start
 
 - DNS: an `A` record for `api.<domain>` pointing at the core ip. No `AAAA`. Caddy needs it to get a cert.
-- Vultr firewall groups: if either server has one, allow TCP 2222 in it too. Otherwise the 2222 test hangs.
+- Cloud firewall (security group): if your provider puts one in front of either server, allow TCP 2222 in it too. Otherwise the 2222 test hangs.
 - Core `.env`: add a redis password.
   ```sh
   printf '\nREDIS_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> /opt/hacktx2026/.env
@@ -142,8 +142,8 @@ The repo is now on a detached commit. Running `deploy.sh` again goes back to the
 ## Troubleshooting
 
 - Logs: `sudo docker compose -f /opt/hacktx2026/infra/<role>/docker-compose.yml logs -f --tail 100 [service]`
-- Locked out of 2222: use the Vultr web console and log in as root there.
-- Caddy can't get a cert: the `A` record isn't pointing at core yet, or port 80 is blocked by a Vultr firewall group.
+- Locked out of 2222: use your provider's web console and log in as root there.
+- Caddy can't get a cert: the `A` record isn't pointing at core yet, or port 80 is blocked by a cloud firewall.
 - Backend unhealthy with `db: down`: check `TIGER_DATABASE_URL`.
 - A secret with `$` in it: compose treats `$` in `.env` as a variable. Write it as `$$` or wrap the value in single quotes.
 - Rerunning a `setup.sh` is safe. Once sshd is hardened it skips the 22/2222 handover.

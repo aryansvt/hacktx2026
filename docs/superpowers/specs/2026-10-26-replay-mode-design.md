@@ -64,12 +64,13 @@ Snapshot file: `{ version, recorded: {from, to}, stats, visits, events }`. `stat
 
 `NEXT_PUBLIC_MODE` = `replay | live | mock`. Unset falls back to `NEXT_PUBLIC_MOCK=1` (mock) and otherwise replay, since the backend is gone. The hidden M toggle offers Live only when the build is in live mode, and a stored choice is ignored unless it is allowed. Live defaults point at localhost instead of the old API host.
 
-## UI copy in replay mode
+## UI in replay mode
 
-- Banner, top left under the top bar on desktop (hidden while the creature page or chronicle feed fills that column), full width under the top bar on phones with heralds moved below it.
-- Timeline badge reads REPLAY. "live web reputation lookup" reads "recorded web reputation lookup".
-- Footer: the live deployment ended and its data was deleted; this is an anonymized recording.
-- Top bar tooltips talk about the recording, not "right now on the server".
+Constraint from the owner: the existing design stays as it is. No changes to layout, colors, fonts, animations, creatures, panels or copy. The only visible addition is the banner, built from the existing ornament panel style.
+
+- The banner sits on top of the chronicle card, same width, and moves with it. It hides while the creature page or chronicle feed covers that column. The Bestiary and Beneath the Castle drawer may cover it while open.
+- Existing copy that still says "live" (the timeline badge, "live web reputation lookup", the footer) stays as it is.
+- The snapshot is bundled as a lazy chunk, so a missing or broken file fails the build instead of showing an empty world.
 
 ## Left to the builder
 

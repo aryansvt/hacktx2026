@@ -23,6 +23,7 @@ import Undercroft from "@/components/castle/Undercroft";
 import TitleCard from "@/components/intro/TitleCard";
 import SoundToggle from "@/components/sound/SoundToggle";
 import DevDataToggle from "./DevDataToggle";
+import ReplayBanner from "./ReplayBanner";
 const World = dynamic(() => import("./World"), {
   ssr: false,
   loading: () => null,
@@ -127,6 +128,7 @@ export default function LiveShell() {
         </svg>
       )}
       {!kiosk && <TopBar />}
+      {mode === "replay" && <ReplayBanner />}
       <Heralds />
       {!kiosk && <Chronicle />}
       {mode === "live" && conn === "reconnecting" && (

@@ -147,20 +147,19 @@ function summarize(
   });
 }
 
+// bundled as its own lazy chunk: a missing or broken snapshot fails the build
+// instead of leaving an empty world, and it ships with the code that reads it
+const bundled = async () =>
+  (await import("../../public/replay/snapshot.json"))
+    .default as unknown as ReplaySnapshot;
+
 export function createReplayAdapter(
   opts: {
-    url?: string;
     load?: () => Promise<ReplaySnapshot>;
     targetMs?: number;
   } = {},
 ): DataAdapter {
-  const load =
-    opts.load ??
-    (async () => {
-      const res = await fetch(opts.url ?? "/replay/snapshot.json");
-      if (!res.ok) throw new Error(`replay snapshot returned ${res.status}`);
-      return (await res.json()) as ReplaySnapshot;
-    });
+  const load = opts.load ?? bundled;
   let data: ReplaySnapshot | null = null;
   let sched: Schedule | null = null;
   const bySession = new Map<string, Schedule["items"]>();

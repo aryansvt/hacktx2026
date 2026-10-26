@@ -1,0 +1,38 @@
+/* replay notice: sits on top of the chronicle card (bottom 100px, 128px tall),
+   clear of the heralds, which come and go every few seconds in a replay */
+.banner {
+  position: fixed;
+  z-index: 20;
+  left: 20px;
+  bottom: 236px;
+  width: min(480px, calc(100vw - 40px));
+  padding: 10px 32px 11px;
+  pointer-events: none;
+}
+.banner p {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.banner span {
+  display: block;
+}
+.offline {
+  font-style: italic;
+  color: var(--muted);
+}
+/* narrow: one flowing sentence pair over two even lines */
+@media (max-width: 560px) {
+  .banner {
+    padding: 9px 30px 10px;
+  }
+  .banner p {
+    font-size: 14px;
+    text-wrap: balance;
+  }
+  .banner span {
+    display: inline;
+  }
+}

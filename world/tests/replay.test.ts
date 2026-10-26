@@ -311,3 +311,12 @@ test("a stalled timer (laptop asleep) counts as a pause, not a backlog", async (
   assert.ok(got.length - before <= 3, `flooded ${got.length - before}`);
   adapter.close();
 });
+
+test("the default loader plays the committed snapshot", async () => {
+  const adapter = createReplayAdapter();
+  const snap = await adapter.snapshot();
+  assert.ok(snap.attackers.length > 50, `${snap.attackers.length} creatures`);
+  assert.ok(snap.stats.total_sessions > 4000);
+  assert.ok(snap.attackers.some((a) => a.attacker.family === "kaiji"));
+  adapter.close();
+});

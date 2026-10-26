@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --test tests/*.test.ts",
+    "snapshot:fetch": "tsx scripts/snapshot/fetch.ts",
+    "snapshot:build": "tsx scripts/snapshot/build.ts"
   },
   "dependencies": {
     "@fontsource/eb-garamond": "^5.3.0",

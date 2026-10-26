@@ -41,3 +41,6 @@ yarn-error.log*
 next-env.d.ts
 
 !.env.example
+
+# raw api dumps for the replay snapshot (hashed ids, unscrubbed text)
+/.replay-raw/
